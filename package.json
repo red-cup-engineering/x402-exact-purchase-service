@@ -1,0 +1,41 @@
+{
+  "name": "@red-cup-engineering/x402-exact-purchase-service",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Buys one x402 exact-EVM resource as a sovereign ERC-1271 enterprise account.",
+  "exports": {
+    ".": "./src/purchase.mjs"
+  },
+  "bin": {
+    "purchase-x402-exact-resource": "./bin/purchase.mjs"
+  },
+  "scripts": {
+    "check": "node --check src/purchase.mjs && node --check bin/purchase.mjs",
+    "test": "node --test test/*.test.mjs",
+    "verify": "npm run check && npm test"
+  },
+  "dependencies": {
+    "@emsenn/enterprise-account-provisioning-service": "file:../../../../../blockchain-services-section/services/ethereum-services-section/services/enterprise-account-provisioning-service",
+    "@x402/core": "2.19.0",
+    "@x402/evm": "2.19.0"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "x-agentic-metro-enterprise": {
+    "node-id": "x402-exact-purchase-service",
+    "actor": "urn:ame:x402-exact-purchase-service",
+    "organizational-kind": "public-protocol-provider",
+    "owners": ["red-cup-engineering"],
+    "operation-catalog": {
+      "purchase-x402-exact-resource": {
+        "protocol": "x402 v2",
+        "scheme": "exact",
+        "payer": "ERC-1271 enterprise account"
+      }
+    },
+    "admission": "one HTTPS resource, exact positive integer maximum amount, explicit EIP-155 CAIP-2 network and RPC, one OCapN sturdy reference, and encrypted policy-signer custody bound to a deployed enterprise account",
+    "refusal": "direct EOA payer identity, decimal amount, implicit network, price above admitted maximum, non-x402 response, unsettled payment, or authority wider than the named resource"
+  }
+}
