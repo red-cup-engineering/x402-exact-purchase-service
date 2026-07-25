@@ -1,0 +1,27 @@
+{
+  "id": "ni:///sha-256;pMiMtvHEynQ4UYRhKSt4tgoLgtV8pXNheV7PgTLzDbY",
+  "type": "StockKeepingUnit",
+  "schema": "urn:emsenn:schema:stock-keeping-unit:2026-07-24",
+  "sku": "x402-exact-purchase-service.purchase-x402-exact-resource.purchase-x402-exact-resource.NNhMz_TH",
+  "producer": {
+    "actor": "urn:ame:x402-exact-purchase-service",
+    "nodeId": "x402-exact-purchase-service"
+  },
+  "product": {
+    "name": "Exact x402 enterprise-account purchase",
+    "kind": "service-invocation",
+    "contract": {
+      "id": "purchase-x402-exact-resource",
+      "law": "ni:///sha-256;NNhMz_THxHvEi5V_7dwduZteH46tzyOtDqBctYsmib8"
+    },
+    "operation": "purchase-x402-exact-resource",
+    "description": "Buy one HTTPS x402 exact-EVM resource as a deployed ERC-1271 enterprise account under attenuated OCapN authority."
+  },
+  "denominations": [
+    "union-integration-credit-atomic-v1"
+  ],
+  "pricing": {
+    "intrinsicPrice": null,
+    "priceFormation": "counterparty-border-offer"
+  }
+}

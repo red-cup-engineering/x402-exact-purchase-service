@@ -5,18 +5,20 @@
   "type": "module",
   "description": "Buys one x402 exact-EVM resource as a sovereign ERC-1271 enterprise account.",
   "exports": {
-    ".": "./src/purchase.mjs"
+    ".": "./src/purchase.mjs",
+    "./law": "./src/law.mjs"
   },
   "bin": {
     "purchase-x402-exact-resource": "./bin/purchase.mjs"
   },
   "scripts": {
-    "check": "node --check src/purchase.mjs && node --check bin/purchase.mjs",
+    "check": "node --check src/law.mjs && node --check src/purchase.mjs && node --check bin/purchase.mjs",
     "test": "node --test test/*.test.mjs",
     "verify": "npm run check && npm test"
   },
   "dependencies": {
     "@emsenn/enterprise-account-provisioning-service": "file:../../../../../blockchain-services-section/services/ethereum-services-section/services/enterprise-account-provisioning-service",
+    "@emsenn/rmn-semantic-conformance": "file:../../../../../../../lenticule-science/services/obsmetrological-services-section/services/rmn-semantic-conformance",
     "@x402/core": "2.19.0",
     "@x402/evm": "2.19.0"
   },
@@ -30,6 +32,7 @@
     "owners": ["red-cup-engineering"],
     "operation-catalog": {
       "purchase-x402-exact-resource": {
+        "contract": "content/contracts/purchase-x402-exact-resource.rml",
         "protocol": "x402 v2",
         "scheme": "exact",
         "payer": "ERC-1271 enterprise account"

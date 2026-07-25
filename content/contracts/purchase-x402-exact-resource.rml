@@ -1,0 +1,10 @@
+#lang rmn/v2
+(map
+  ("type" "X402ExactPurchaseLaw")
+  ("version" 1)
+  ("provider" "one sovereign x402 exact-resource purchasing settlement")
+  ("precondition" "One HTTPS resource, one explicit EIP-155 CAIP-2 network and RPC endpoint, one positive integer maximum atomic amount, one attenuated OCapN sturdy reference, and encrypted custody for one deployed ERC-1271 enterprise account.")
+  ("operation" "Request the named resource, admit exactly one x402 v2 exact-EVM payment requirement whose network and integer amount do not exceed the customer boundary, sign through the enterprise account policy signer, submit payment through the named facilitator, retry the authorized request with payment evidence, and observe the same invocation until it reaches a terminal delivery or refusal. Read-only observation may repeat; payment and work invocation may not.")
+  ("postcondition" "Return one receipt binding the enterprise-account customer, resource, OCapN authority, exact requirement, settlement transaction, invocation identity, and terminal delivered lot or typed refusal.")
+  ("refusal" "Refuse an implicit or different network, decimal or nonpositive amount, price above the admitted maximum, non-HTTPS resource, direct EOA payer identity, absent ERC-1271 deployment, authority wider than the named resource, malformed x402 requirement, failed settlement, or foreign delivery.")
+  ("invariants" ("one-purchasable-capability" "one-resource" "one-network" "integer-atomic-amounts" "unknown-is-not-zero" "erc-1271-customer" "attenuated-ocapn" "exactly-once-payment" "exactly-once-work-invocation" "repeatable-read-only-observation" "no-invented-completion-deadline")))

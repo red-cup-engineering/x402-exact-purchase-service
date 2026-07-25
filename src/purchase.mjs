@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { openSettlementSigner } from "@emsenn/enterprise-account-provisioning-service/custody";
+import { X402_EXACT_PURCHASE_LAW } from "./law.mjs";
 
 const CAIP2 = /^eip155:[1-9][0-9]*$/u;
 const POSITIVE_INTEGER = /^[1-9][0-9]*$/u;
@@ -116,6 +117,7 @@ export async function purchaseExactResource({
   }
   return Object.freeze({
     type: "X402ExactPurchaseReceipt",
+    law: X402_EXACT_PURCHASE_LAW.id,
     customer: payer.caip10,
     resource: url,
     requirement: eligible[0],
