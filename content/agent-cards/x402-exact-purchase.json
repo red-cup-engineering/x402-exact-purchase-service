@@ -1,0 +1,107 @@
+{
+  "name": "x402 Exact Purchase Service",
+  "description": "Buys one exact-EVM x402 resource as a deployed ERC-1271 enterprise account under attenuated OCapN authority.",
+  "supportedInterfaces": [
+    {
+      "url": "${BASE_URL}/a2a/jsonrpc",
+      "protocolBinding": "JSONRPC",
+      "tenant": "",
+      "protocolVersion": "1.0"
+    },
+    {
+      "url": "${BASE_URL}/a2a/rest",
+      "protocolBinding": "HTTP+JSON",
+      "tenant": "",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "provider": {
+    "url": "https://github.com/red-cup-engineering/x402-exact-purchase-service",
+    "organization": "Red Cup Engineering"
+  },
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extensions": [
+      {
+        "uri": "ni:///sha-256;wzh-zYeFQCsh4zAzGS34uacNV4qJeIEmCKIUUWyRZ-M",
+        "description": "Sovereign recursive circuit interface",
+        "required": true,
+        "params": {
+          "profile": "org.emsenn.rmn.sovereign-circuit-interface.v1",
+          "account": "eip155:5615610:0xac5118d879ec103fed7e650fe0741632d069dcb5",
+          "authority": "ni:///sha-256;8fDfzZgqS3zYE9SJBM0PshwXIRsOv5ivonknljg7fGk",
+          "custody": "ni:///sha-256;KVIdeoNQ1SV0pe5DSFYz4EE-LxvEW4JGAo_j3zKnfzo",
+          "territory": "ni:///sha-256;hb07D_c2CzmyeG59ktqGCa1nH_Zt1km4lCMUSxoJhfE",
+          "component": {
+            "profile": "org.emsenn.rmn.hierarchical-circuit.v3",
+            "law": "ni:///sha-256;NNhMz_THxHvEi5V_7dwduZteH46tzyOtDqBctYsmib8",
+            "ports": [
+              {
+                "name": "request",
+                "direction": "input",
+                "predicate": "ni:///sha-256;oLmx4YQJh4-6G5LSASDxWeKcbSGqcI-TW72NwMmel4Q",
+                "carrier": "ni:///sha-256;IX61x2cTCr-q3mXRUqW2vWD06RfAhsR7McuSQ-EIIjE",
+                "mode": "tensor"
+              },
+              {
+                "name": "receipt",
+                "direction": "output",
+                "predicate": "ni:///sha-256;oLmx4YQJh4-6G5LSASDxWeKcbSGqcI-TW72NwMmel4Q",
+                "carrier": "ni:///sha-256;IX61x2cTCr-q3mXRUqW2vWD06RfAhsR7McuSQ-EIIjE",
+                "mode": "tensor"
+              }
+            ],
+            "instances": [],
+            "nets": [],
+            "behavior": {
+              "factors": [
+                {
+                  "inputs": ["request"],
+                  "outputs": ["receipt"],
+                  "rows": [
+                    {"input":[{"positiveEvidence":false,"negativeEvidence":false}],"output":[{"positiveEvidence":false,"negativeEvidence":false}]},
+                    {"input":[{"positiveEvidence":true,"negativeEvidence":false}],"output":[{"positiveEvidence":true,"negativeEvidence":false}]},
+                    {"input":[{"positiveEvidence":false,"negativeEvidence":true}],"output":[{"positiveEvidence":false,"negativeEvidence":true}]},
+                    {"input":[{"positiveEvidence":true,"negativeEvidence":true}],"output":[{"positiveEvidence":true,"negativeEvidence":true}]}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "uri": "ni:///sha-256;PJGdh3bPbCSjQcciOwe5zau_pGjHia6Rn4olpBlHWk4",
+        "description": "Capability Cell identity binding",
+        "required": false,
+        "params": {
+          "profile": "org.emsenn.capability-cell-identity-binding.v1",
+          "cell": "ni:///sha-256;2iUXxv8i9rJoE51qfLecQkZslScvNLp2LXq2tyALYFk",
+          "sku": "ni:///sha-256;pMiMtvHEynQ4UYRhKSt4tgoLgtV8pXNheV7PgTLzDbY",
+          "capability": "ni:///sha-256;NNhMz_THxHvEi5V_7dwduZteH46tzyOtDqBctYsmib8",
+          "controller": "did:pkh:eip155:5615610:0xac5118d879ec103fed7e650fe0741632d069dcb5"
+        }
+      }
+    ],
+    "extendedAgentCard": false
+  },
+  "securitySchemes": {},
+  "securityRequirements": [],
+  "defaultInputModes": ["application/rmn+cbor"],
+  "defaultOutputModes": ["application/rmn+cbor"],
+  "skills": [
+    {
+      "id": "purchase-x402-exact-resource",
+      "name": "Purchase x402 exact resource",
+      "description": "Purchase one x402 exact-EVM resource through the cell's enterprise account.",
+      "tags": ["x402", "purchase", "erc-1271"],
+      "examples": [],
+      "inputModes": ["application/rmn+cbor"],
+      "outputModes": ["application/rmn+cbor"],
+      "securityRequirements": []
+    }
+  ],
+  "signatures": []
+}

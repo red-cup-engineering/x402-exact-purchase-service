@@ -6,21 +6,30 @@
   "description": "Buys one x402 exact-EVM resource as a sovereign ERC-1271 enterprise account.",
   "exports": {
     ".": "./src/purchase.mjs",
-    "./law": "./src/law.mjs"
+    "./law": "./src/law.mjs",
+    "./a2a-executor": "./src/a2a-executor.mjs"
   },
   "bin": {
-    "purchase-x402-exact-resource": "./bin/purchase.mjs"
+    "purchase-x402-exact-resource": "./bin/purchase.mjs",
+    "execute-x402-exact-purchase-a2a-message": "./bin/execute-a2a-message.mjs",
+    "serve-x402-exact-purchase-seller": "./bin/x402-server.mjs"
   },
   "scripts": {
-    "check": "node --check src/law.mjs && node --check src/purchase.mjs && node --check bin/purchase.mjs",
+    "check": "node --check src/law.mjs && node --check src/purchase.mjs && node --check src/a2a-executor.mjs && node --check bin/purchase.mjs && node --check bin/execute-a2a-message.mjs && node --check bin/x402-server.mjs",
     "test": "node --test test/*.test.mjs",
     "verify": "npm run check && npm test"
   },
   "dependencies": {
+    "@a2a-js/sdk": "1.0.0-beta.0",
+    "@emsenn/a2a-contracted-agent-service": "file:../../../a2a-services-section/services/a2a-contracted-agent-service",
+    "@emsenn/a2a-rmn-part-service": "file:../../../a2a-services-section/services/a2a-rmn-part-service",
+    "@emsenn/activitypub-services-section": "file:../../../activitypub-services-section",
     "@emsenn/enterprise-account-provisioning-service": "file:../../../../../blockchain-services-section/services/ethereum-services-section/services/enterprise-account-provisioning-service",
     "@emsenn/rmn-semantic-conformance": "file:../../../../../../../lenticule-science/services/obsmetrological-services-section/services/rmn-semantic-conformance",
+    "@emsenn/x402-services-section": "file:../..",
     "@x402/core": "2.19.0",
-    "@x402/evm": "2.19.0"
+    "@x402/evm": "2.19.0",
+    "express": "5.2.1"
   },
   "engines": {
     "node": ">=22.18"

@@ -1,0 +1,32 @@
+[Unit]
+Description=x402 Exact Purchase Cell priced seller face
+After=network-online.target capability-pricing-service.service x402-facilitator-eip155-5615610.service
+Wants=network-online.target capability-pricing-service.service x402-facilitator-eip155-5615610.service
+
+[Service]
+Type=exec
+WorkingDirectory=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service
+Environment=HOST=127.0.0.1
+Environment=PORT=15632
+Environment=SETTLEMENT_CAIP2=eip155:5615610
+Environment=SETTLEMENT_ACCOUNT=eip155:5615610:0xac5118d879ec103fed7e650fe0741632d069dcb5
+Environment=ACCOUNT_BINDING=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/content/evm/accounts/eip155-5615610.json
+Environment=ACCOUNT_KEYSTORE=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/data/evm/keystores/eip155-5615610.json
+Environment=ACCOUNT_PASSWORD_FILE=/home/emsenn/.local/share/emsenn/settlement-credentials/669195d1edbcf91ad86835982614d1ef790aa96d63c56188fb9af3af43630ed8/eip155-5615610.password
+Environment=PRICE_QUOTE_URL=http://127.0.0.1:19960/quote
+Environment=PRICE_QUOTE_DEMAND=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/content/pricing/alpha-reservation-price-demand.json
+Environment=CAPABILITY_OFFER_PATH=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/content/offers/current.json
+Environment=X402_FACILITATOR_URL=http://127.0.0.1:18893
+Environment=OCAPN_ADMISSION_URL=http://127.0.0.1:18894/admit
+Environment=X402_ASSET=0x610178dA211FEF7D417bC0e6FeD39F05609AD788
+Environment="X402_ASSET_NAME=Union Integration Credit"
+Environment=X402_ASSET_VERSION=1
+Environment=X402_RECEIPT_PATH=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/data/x402/receipts.jsonl
+ExecStart=/home/emsenn/.config/nvm/versions/node/v24.13.1/bin/node bin/x402-server.mjs
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

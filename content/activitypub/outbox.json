@@ -1,0 +1,38 @@
+[
+  {
+    "@context": "https://www.w3.org/ns/activitystreams",
+    "id": "https://bare-cedar-fog.561.group/activities/x402-exact-purchase/cell/1",
+    "type": "Announce",
+    "actor": "https://bare-cedar-fog.561.group/actors/x402-exact-purchase",
+    "to": "https://www.w3.org/ns/activitystreams#Public",
+    "object": {
+      "id": "ni:///sha-256;2iUXxv8i9rJoE51qfLecQkZslScvNLp2LXq2tyALYFk",
+      "type": "Service",
+      "name": "x402 Exact Purchase Service",
+      "url": "https://bare-cedar-fog.561.group/a2a/x402-exact-purchase/.well-known/agent-card.json",
+      "attachment": [
+        {
+          "type": "PropertyValue",
+          "name": "SKU",
+          "value": "ni:///sha-256;pMiMtvHEynQ4UYRhKSt4tgoLgtV8pXNheV7PgTLzDbY"
+        },
+        {
+          "type": "PropertyValue",
+          "name": "Capability Law",
+          "value": "ni:///sha-256;NNhMz_THxHvEi5V_7dwduZteH46tzyOtDqBctYsmib8"
+        },
+        {
+          "type": "PropertyValue",
+          "name": "Controller",
+          "value": "did:pkh:eip155:5615610:0xac5118d879ec103fed7e650fe0741632d069dcb5"
+        },
+        {
+          "type": "Link",
+          "name": "Offer",
+          "href": "https://bare-cedar-fog.561.group/x402/x402-exact-purchase/offer",
+          "mediaType": "application/json"
+        }
+      ]
+    }
+  }
+]

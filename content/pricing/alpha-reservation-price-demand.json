@@ -1,0 +1,51 @@
+{
+  "denomination": {
+    "kind": "credit",
+    "asset": "urn:union:credit:relative-resolution-milliquanta-v1",
+    "unit": "relative-resolution-milliquanta-v1"
+  },
+  "resourceLots": [
+    {
+      "resource": "coordination-cpu",
+      "quantity": {
+        "numerator": "1",
+        "denominator": "10"
+      },
+      "unitRate": {
+        "kind": "credit",
+        "asset": "urn:union:credit:relative-resolution-milliquanta-v1",
+        "unit": "relative-resolution-milliquanta-v1",
+        "amount": {
+          "numerator": "5",
+          "denominator": "1"
+        }
+      }
+    }
+  ],
+  "boundaryCosts": [
+    {
+      "boundary": "downstream-x402-capability-purchase",
+      "consideration": {
+        "kind": "credit",
+        "asset": "urn:union:credit:relative-resolution-milliquanta-v1",
+        "unit": "relative-resolution-milliquanta-v1",
+        "amount": {
+          "numerator": "33",
+          "denominator": "1"
+        }
+      }
+    }
+  ],
+  "verifiedDeliveryProbability": {
+    "numerator": "4",
+    "denominator": "5"
+  },
+  "marginRate": {
+    "numerator": "1",
+    "denominator": "5"
+  },
+  "quoteIncrement": {
+    "numerator": "1",
+    "denominator": "1"
+  }
+}
