@@ -12,6 +12,7 @@ import {
   openEnterpriseAccountPayer,
   purchaseAndAwaitExactResource,
 } from "../src/purchase.mjs";
+import { X402_EXACT_PURCHASE_LAW } from "../src/law.mjs";
 
 function required(name) {
   const value = process.env[name];
@@ -43,18 +44,30 @@ async function appendReceipt(path, record) {
   await appendFile(path, `${JSON.stringify(record)}\n`, { encoding: "utf8", mode: 0o600 });
 }
 
-async function terminalReceipts(path) {
+async function receiptState(path) {
   let source;
   try {
     source = await readFile(path, "utf8");
   } catch (error) {
-    if (error?.code === "ENOENT") return new Map();
+    if (error?.code === "ENOENT") return { intents: new Map(), settlements: new Map(), terminal: new Map() };
     throw error;
   }
-  return new Map(source.split("\n").filter(Boolean)
-    .map((line) => JSON.parse(line))
-    .filter((record) => ["X402PaidExactPurchaseReceipt", "X402PaidExactPurchaseRefusal"].includes(record?.type))
-    .map((record) => [record.invocation, record]));
+  const records = source.split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  return {
+    intents: new Map(records
+      .filter((record) => record?.type === "X402PaidExactPurchaseIntent")
+      .map((record) => [record.invocation, record])),
+    settlements: new Map(records
+      .filter((record) => record?.type === "X402ExactPurchaseSettlementReceipt")
+      .map((record) => [record.invocation, record])),
+    terminal: new Map(records
+      .filter((record) => [
+        "X402PaidExactPurchaseReceipt",
+        "X402PaidExactPurchaseRecoveryReceipt",
+        "X402PaidExactPurchaseRefusal",
+      ].includes(record?.type))
+      .map((record) => [record.invocation, record])),
+  };
 }
 
 export async function main() {
@@ -78,8 +91,116 @@ export async function main() {
   if (payer.caip10.toLowerCase() !== settlement.toLowerCase()) {
     throw new Error("purchase payer and seller settlement account must be the same cell controller");
   }
-  const pending = new Map();
-  const terminal = await terminalReceipts(receiptPath);
+  const downstreamSturdyRef = (await readFile(required("DOWNSTREAM_OCAPN_STURDYREF_FILE"), "utf8")).trim();
+  const downstreamRpcUrl = required("DOWNSTREAM_RPC_URL");
+  const capabilityTerritory = required("CAPABILITY_TERRITORY");
+  const recovered = await receiptState(receiptPath);
+  const pending = new Map(recovered.intents);
+  const settlements = new Map(recovered.settlements);
+  const terminal = new Map(recovered.terminal);
+  const running = new Set();
+  async function executePaidIntent(invocation, intent, settlementEvidence, recovery = false) {
+    if (running.has(invocation)) throw new Error("paid obligation is already executing");
+    running.add(invocation);
+    try {
+      const request = structuredClone(intent.request);
+      request.sturdyRef = downstreamSturdyRef;
+      request.rpcUrl = downstreamRpcUrl;
+      if (request.body && typeof request.body === "object" && request.body.territory === undefined) {
+        request.body.territory = capabilityTerritory;
+      }
+      const result = await purchaseAndAwaitExactResource({
+        ...request,
+        payer,
+        fetchImpl: globalThis.fetch,
+      });
+      const receipt = {
+        type: recovery ? "X402PaidExactPurchaseRecoveryReceipt" : "X402PaidExactPurchaseReceipt",
+        invocation,
+        settlement: settlementEvidence,
+        result,
+      };
+      terminal.set(invocation, receipt);
+      await appendReceipt(receiptPath, receipt);
+    } catch (error) {
+      const refusal = {
+        type: "X402PaidExactPurchaseRefusal",
+        invocation,
+        settlement: settlementEvidence,
+        reason: error instanceof Error ? error.message : String(error),
+      };
+      terminal.set(invocation, refusal);
+      await appendReceipt(receiptPath, refusal);
+    } finally {
+      running.delete(invocation);
+    }
+  }
+  async function recoverFromDeliveredDownstream(invocation, intent, settlementEvidence, deliveredResult) {
+    if (running.has(invocation)) throw new Error("paid obligation is already executing");
+    running.add(invocation);
+    try {
+      const resultUrl = new URL(deliveredResult);
+      const downstreamInvoke = new URL(intent.request.url);
+      const expectedPrefix = downstreamInvoke.pathname.replace(/\/invoke$/u, "/result/");
+      if (resultUrl.protocol !== "https:" || resultUrl.origin !== downstreamInvoke.origin
+          || !resultUrl.pathname.startsWith(expectedPrefix)) {
+        throw new Error("downstream recovery result is outside the purchased resource result boundary");
+      }
+      const response = await fetch(resultUrl, { headers: { accept: "application/json" } });
+      const observed = await response.json();
+      const delivered = observed?.terminal;
+      if (!response.ok || observed?.status !== "terminal"
+          || !["X402PaidSoftwareMissionReceipt", "X402PaidSoftwareMissionRecoveryReceipt"].includes(delivered?.type)
+          || delivered?.settlement?.success !== true
+          || delivered?.invocation !== observed?.invocation) {
+        throw new Error("downstream recovery result does not prove one settled terminal delivery");
+      }
+      const offerUrl = new URL("./offer", downstreamInvoke);
+      const offerResponse = await fetch(offerUrl, { headers: { accept: "application/json" } });
+      const offer = await offerResponse.json();
+      if (!offerResponse.ok || offer.price?.network !== intent.request.network
+          || !/^[1-9][0-9]*$/u.test(offer.price?.amount ?? "")
+          || BigInt(offer.price.amount) > BigInt(intent.request.maximumAmount)) {
+        throw new Error("downstream recovery offer does not match the admitted purchase boundary");
+      }
+      const result = {
+        type: "X402ExactPurchaseReceipt",
+        law: X402_EXACT_PURCHASE_LAW.id,
+        customer: payer.caip10,
+        resource: intent.request.url,
+        requirement: {
+          scheme: "exact",
+          network: offer.price.network,
+          amount: offer.price.amount,
+          asset: offer.price.asset,
+          payTo: offer.price.payTo,
+        },
+        invocation: delivered.invocation,
+        result: resultUrl.href,
+        settlement: delivered.settlement,
+        delivery: delivered,
+      };
+      const receipt = {
+        type: "X402PaidExactPurchaseRecoveryReceipt",
+        invocation,
+        settlement: settlementEvidence,
+        result,
+      };
+      terminal.set(invocation, receipt);
+      await appendReceipt(receiptPath, receipt);
+    } catch (error) {
+      const refusal = {
+        type: "X402PaidExactPurchaseRefusal",
+        invocation,
+        settlement: settlementEvidence,
+        reason: error instanceof Error ? error.message : String(error),
+      };
+      terminal.set(invocation, refusal);
+      await appendReceipt(receiptPath, refusal);
+    } finally {
+      running.delete(invocation);
+    }
+  }
   const boundary = createExactEvmPaymentBoundary({
     network,
     facilitatorUrl: required("X402_FACILITATOR_URL"),
@@ -103,30 +224,17 @@ export async function main() {
       const invocation = settlementEvidence.invocation;
       const intent = pending.get(invocation);
       if (!intent) throw new Error("settled payment has no exact purchase intent");
-      await appendReceipt(receiptPath, { type: "X402ExactPurchaseSettlementReceipt", invocation, settlement: settlementEvidence, pricing: priced.result });
-      try {
-        const result = await purchaseAndAwaitExactResource({
-          ...intent.request,
-          payer,
-          fetchImpl: globalThis.fetch,
-        });
-        const receipt = { type: "X402PaidExactPurchaseReceipt", invocation, result };
-        terminal.set(invocation, receipt);
-        await appendReceipt(receiptPath, receipt);
-      } catch (error) {
-        const refusal = { type: "X402PaidExactPurchaseRefusal", invocation, reason: error instanceof Error ? error.message : String(error) };
-        terminal.set(invocation, refusal);
-        await appendReceipt(receiptPath, refusal);
-      } finally {
-        pending.delete(invocation);
-      }
+      const settlementReceipt = { type: "X402ExactPurchaseSettlementReceipt", invocation, settlement: settlementEvidence, pricing: priced.result };
+      settlements.set(invocation, settlementReceipt);
+      await appendReceipt(receiptPath, settlementReceipt);
+      await executePaidIntent(invocation, intent, settlementEvidence);
     },
   });
   const app = express();
   app.set("trust proxy", "loopback");
   app.use(express.json({ limit: process.env.JSON_BODY_LIMIT ?? "1mb" }));
   app.get("/x402/x402-exact-purchase/offer", (_request, response) => response.json({ ...offer, pricing: priced.result }));
-  app.post(resource, async (request, response, next) => {
+  async function admitCustomerAuthority(request, response, next) {
     try {
       const authorization = request.get("authorization") ?? "";
       const matched = /^OCapN (urn:ocapn:sturdyref:[A-Za-z0-9_-]{43})$/u.exec(authorization);
@@ -142,7 +250,8 @@ export async function main() {
     } catch (error) {
       response.status(403).json({ ok: false, refusal: { type: "OCapNSturdyRefAdmissionRefusal", reason: error.message } });
     }
-  });
+  }
+  app.post(resource, admitCustomerAuthority);
   app.use(boundary.middleware);
   app.post(resource, async (request, response) => {
     const invocation = x402PaymentIdentity(request.get("payment-signature"));
@@ -154,7 +263,40 @@ export async function main() {
   app.get("/x402/x402-exact-purchase/result/:id", (request, response) => {
     if (!/^[0-9a-f]{64}$/u.test(request.params.id)) return response.status(400).json({ ok: false, refusal: { type: "InvalidInvocationIdentity" } });
     const invocation = `sha256:${request.params.id}`;
-    return response.status(terminal.has(invocation) ? 200 : 202).json({ ok: true, invocation, status: terminal.has(invocation) ? "terminal" : "pending", terminal: terminal.get(invocation) ?? null });
+    const recoveryPending = running.has(invocation);
+    const isTerminal = terminal.has(invocation) && !recoveryPending;
+    return response.status(isTerminal ? 200 : 202).json({
+      ok: true,
+      invocation,
+      status: recoveryPending ? "recovery-pending" : isTerminal ? "terminal" : "pending",
+      terminal: isTerminal ? terminal.get(invocation) : null,
+    });
+  });
+  app.post("/x402/x402-exact-purchase/recover/:id", admitCustomerAuthority, (request, response) => {
+    if (!/^[0-9a-f]{64}$/u.test(request.params.id)) {
+      return response.status(400).json({ ok: false, refusal: { type: "InvalidInvocationIdentity" } });
+    }
+    const invocation = `sha256:${request.params.id}`;
+    const intent = pending.get(invocation);
+    const settlementReceipt = settlements.get(invocation);
+    const prior = terminal.get(invocation);
+    if (!intent || settlementReceipt?.settlement?.success !== true
+        || prior?.type !== "X402PaidExactPurchaseRefusal") {
+      return response.status(409).json({ ok: false, refusal: { type: "PaidObligationNotRecoverable" } });
+    }
+    if (running.has(invocation)) {
+      return response.status(202).json({ ok: true, invocation, status: "recovery-pending" });
+    }
+    const deliveredResult = request.body?.deliveredResult;
+    running.add(invocation);
+    setImmediate(() => {
+      running.delete(invocation);
+      (deliveredResult === undefined
+        ? executePaidIntent(invocation, intent, settlementReceipt.settlement, true)
+        : recoverFromDeliveredDownstream(invocation, intent, settlementReceipt.settlement, deliveredResult))
+        .catch((error) => process.stderr.write(`${error.stack ?? error.message}\n`));
+    });
+    return response.status(202).json({ ok: true, invocation, status: "recovery-started" });
   });
   const host = process.env.HOST ?? "127.0.0.1";
   const port = Number(process.env.PORT ?? "15632");

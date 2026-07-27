@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { openSettlementSigner } from "@emsenn/enterprise-account-provisioning-service/custody";
@@ -22,6 +23,55 @@ function requiredSturdyRef(value) {
     throw new TypeError("one canonical OCapN sturdy reference is required");
   }
   return value;
+}
+
+export class X402ResourceResponseError extends Error {
+  constructor(message, { boundary, status, contentType, bodySha256, cause } = {}) {
+    super(message, { cause });
+    this.name = "X402ResourceResponseError";
+    this.code = "X402_RESOURCE_INVALID_RESPONSE";
+    this.boundary = boundary;
+    this.status = status;
+    this.contentType = contentType;
+    this.bodySha256 = bodySha256;
+  }
+}
+
+async function digestBody(response) {
+  const digest = createHash("sha256");
+  if (response.body == null) return digest.digest("hex");
+  for await (const chunk of response.body) digest.update(chunk);
+  return digest.digest("hex");
+}
+
+async function exactJsonResponse(response, boundary) {
+  const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? null;
+  if (contentType !== "application/json" && !contentType?.endsWith("+json")) {
+    throw new X402ResourceResponseError(
+      `${boundary} returned a non-JSON representation`,
+      {
+        boundary,
+        status: response.status,
+        contentType,
+        bodySha256: await digestBody(response),
+      },
+    );
+  }
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (cause) {
+    throw new X402ResourceResponseError(
+      `${boundary} returned malformed JSON`,
+      {
+        boundary,
+        status: response.status,
+        contentType,
+        bodySha256: createHash("sha256").update(text).digest("hex"),
+        cause,
+      },
+    );
+  }
 }
 
 export async function openEnterpriseAccountPayer({
@@ -83,7 +133,7 @@ export async function purchaseExactResource({
   };
   const serialized = JSON.stringify(body);
   const unpaid = await fetchImpl(url, { method: "POST", headers: baseHeaders, body: serialized });
-  const unpaidBody = await unpaid.json();
+  const unpaidBody = await exactJsonResponse(unpaid, "unpaid resource response");
   if (unpaid.status !== 402) {
     throw new Error(`resource did not return an x402 payment requirement: HTTP ${unpaid.status}`);
   }
@@ -106,14 +156,25 @@ export async function purchaseExactResource({
     headers: { ...baseHeaders, ...protocol.encodePaymentSignatureHeader(payload) },
     body: serialized,
   });
-  const responseBody = await paid.json();
+  const responseBody = await exactJsonResponse(paid, "paid resource response");
   const payment = await protocol.processPaymentResult(
     payload,
     (name) => paid.headers.get(name),
     paid.status,
   );
   if (paid.status !== 202 || payment.settleResponse?.success !== true) {
-    throw new Error(`x402 settlement failed: HTTP ${paid.status}`);
+    const paymentRequired = paid.status === 402
+      ? protocol.getPaymentRequiredResponse(
+        (name) => paid.headers.get(name),
+        responseBody,
+      )
+      : null;
+    const reason = payment.settleResponse?.errorReason
+      ?? paymentRequired?.error
+      ?? responseBody?.error
+      ?? responseBody?.message
+      ?? "settlement response supplied no reason";
+    throw new Error(`x402 settlement failed: HTTP ${paid.status}: ${reason}`);
   }
   return Object.freeze({
     type: "X402ExactPurchaseReceipt",
@@ -139,7 +200,7 @@ export async function awaitPurchasedResult({
   }
   for (;;) {
     const response = await fetchImpl(receipt.result, { headers: { accept: "application/json" }, signal });
-    const body = await response.json();
+    const body = await exactJsonResponse(response, "purchased result response");
     await onObservation?.(Object.freeze({ status: response.status, body }));
     if (!response.ok) throw new Error(`purchased result refused observation: HTTP ${response.status}`);
     if (body.status === "terminal") {

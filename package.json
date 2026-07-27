@@ -25,7 +25,7 @@
     "@emsenn/a2a-rmn-part-service": "file:../../../a2a-services-section/services/a2a-rmn-part-service",
     "@emsenn/activitypub-services-section": "file:../../../activitypub-services-section",
     "@emsenn/enterprise-account-provisioning-service": "file:../../../../../blockchain-services-section/services/ethereum-services-section/services/enterprise-account-provisioning-service",
-    "@emsenn/rmn-semantic-conformance": "file:../../../../../../../lenticule-science/services/obsmetrological-services-section/services/rmn-semantic-conformance",
+    "@emsenn/rmn-semantic-conformance": "file:../../../../../model-services-section/services/relational-model-services-section/services/relational-model-notation-services-section/services/rmn-conformance-service",
     "@emsenn/x402-services-section": "file:../..",
     "@x402/core": "2.19.0",
     "@x402/evm": "2.19.0",
