@@ -7,7 +7,7 @@ import {
   createExactEvmPaymentBoundary,
   x402PaymentIdentity,
   x402SettlementEvidence,
-} from "@emsenn/x402-services-section";
+} from "@red-cup-engineering/x402-services-section";
 import {
   openEnterpriseAccountPayer,
   purchaseAndAwaitExactResource,

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
-import { openSettlementSigner } from "@emsenn/enterprise-account-provisioning-service/custody";
+import { openSettlementSigner } from "@red-cup-engineering/enterprise-account-provisioning-service/custody";
 import { X402_EXACT_PURCHASE_LAW } from "./law.mjs";
 
 const CAIP2 = /^eip155:[1-9][0-9]*$/u;

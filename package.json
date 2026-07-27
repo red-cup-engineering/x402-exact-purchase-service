@@ -21,12 +21,12 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "1.0.0-beta.0",
-    "@emsenn/a2a-contracted-agent-service": "file:../../../a2a-services-section/services/a2a-contracted-agent-service",
-    "@emsenn/a2a-rmn-part-service": "file:../../../a2a-services-section/services/a2a-rmn-part-service",
-    "@emsenn/activitypub-services-section": "file:../../../activitypub-services-section",
-    "@emsenn/enterprise-account-provisioning-service": "file:../../../../../blockchain-services-section/services/ethereum-services-section/services/enterprise-account-provisioning-service",
-    "@emsenn/rmn-semantic-conformance": "file:../../../../../model-services-section/services/relational-model-services-section/services/relational-model-notation-services-section/services/rmn-conformance-service",
-    "@emsenn/x402-services-section": "file:../..",
+    "@red-cup-engineering/a2a-contracted-agent-service": "2.0.0",
+    "@red-cup-engineering/a2a-rmn-part-service": "1.0.0",
+    "@red-cup-engineering/activitypub-services-section": "1.0.0",
+    "@red-cup-engineering/enterprise-account-provisioning-service": "1.0.0",
+    "@red-cup-engineering/rmn-semantic-conformance": "6.0.0",
+    "@red-cup-engineering/x402-services-section": "1.2.0",
     "@x402/core": "2.19.0",
     "@x402/evm": "2.19.0",
     "express": "5.2.1"
@@ -38,7 +38,9 @@
     "node-id": "x402-exact-purchase-service",
     "actor": "urn:ame:x402-exact-purchase-service",
     "organizational-kind": "public-protocol-provider",
-    "owners": ["red-cup-engineering"],
+    "owners": [
+      "red-cup-engineering"
+    ],
     "operation-catalog": {
       "purchase-x402-exact-resource": {
         "contract": "content/contracts/purchase-x402-exact-resource.rml",
@@ -49,5 +51,23 @@
     },
     "admission": "one HTTPS resource, exact positive integer maximum amount, explicit EIP-155 CAIP-2 network and RPC, one OCapN sturdy reference, and encrypted policy-signer custody bound to a deployed enterprise account",
     "refusal": "direct EOA payer identity, decimal amount, implicit network, price above admitted maximum, non-x402 response, unsettled payment, or authority wider than the named resource"
+  },
+  "x-semiotic-voxel": {
+    "profile": "org.harmonious-union.semiotic-voxel.v1",
+    "owner": "red-cup-engineering",
+    "kind": "capability-cell",
+    "actor": "urn:ame:x402-exact-purchase-service",
+    "operations": [
+      "purchase-x402-exact-resource"
+    ],
+    "capabilities": [
+      {
+        "capability": "x402-exact-purchase-service",
+        "faces": [
+          "purchase-x402-exact-resource"
+        ]
+      }
+    ],
+    "package": "@red-cup-engineering/x402-exact-purchase-service"
   }
 }
