@@ -1,0 +1,34 @@
+{
+  "type": "HistoricalChainProjectionArchive",
+  "historical": true,
+  "chain": "eip155:5615610",
+  "recordKind": "capability-cell-manifest",
+  "source": "content/capcell/manifest.json",
+  "record": {
+    "id": "ni:///sha-256;sgOyCmmFa-tWomnu2Dt-c2pJ9X_Wo9SS13NVR9u1fLE",
+    "type": "CapabilityCellManifest",
+    "version": 2,
+    "sku": "ni:///sha-256;pMiMtvHEynQ4UYRhKSt4tgoLgtV8pXNheV7PgTLzDbY",
+    "capability": "ni:///sha-256;NNhMz_THxHvEi5V_7dwduZteH46tzyOtDqBctYsmib8",
+    "controller": "did:pkh:eip155:5615610:0xac5118d879ec103fed7e650fe0741632d069dcb5",
+    "faces": {
+      "github": {
+        "repository": "https://github.com/red-cup-engineering/x402-exact-purchase-service",
+        "identity": "https://raw.githubusercontent.com/red-cup-engineering/x402-exact-purchase-service/main/content/capcell/identity.json"
+      },
+      "activitypub": {
+        "actor": "https://bare-cedar-fog.561.group/actors/x402-exact-purchase"
+      },
+      "a2a": {
+        "agentCard": "https://bare-cedar-fog.561.group/a2a/x402-exact-purchase/.well-known/agent-card.json"
+      },
+      "x402": {
+        "offer": "https://bare-cedar-fog.561.group/x402/x402-exact-purchase/offer",
+        "invoke": "https://bare-cedar-fog.561.group/x402/x402-exact-purchase/invoke"
+      },
+      "evm": {
+        "account": "eip155:5615610:0xac5118d879ec103fed7e650fe0741632d069dcb5"
+      }
+    }
+  }
+}

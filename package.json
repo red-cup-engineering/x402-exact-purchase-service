@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/purchase.mjs",
     "./law": "./src/law.mjs",
-    "./a2a-executor": "./src/a2a-executor.mjs"
+    "./a2a-executor": "./src/a2a-executor.mjs",
+    "./successor-activation": "./src/successor-activation.mjs"
   },
   "bin": {
     "purchase-x402-exact-resource": "./bin/purchase.mjs",
@@ -15,7 +16,7 @@
     "serve-x402-exact-purchase-seller": "./bin/x402-server.mjs"
   },
   "scripts": {
-    "check": "node --check src/law.mjs && node --check src/purchase.mjs && node --check src/a2a-executor.mjs && node --check bin/purchase.mjs && node --check bin/execute-a2a-message.mjs && node --check bin/x402-server.mjs",
+    "check": "node --check src/law.mjs && node --check src/successor-deployment.mjs && node --check src/successor-activation.mjs && node --check src/purchase.mjs && node --check src/a2a-executor.mjs && node --check bin/purchase.mjs && node --check bin/execute-a2a-message.mjs && node --check bin/activitypub-server.mjs && node --check bin/x402-server.mjs && node --check scripts/project-successor-activation-records.mjs",
     "test": "node --test test/*.test.mjs",
     "verify": "npm run check && npm test"
   },
@@ -23,9 +24,9 @@
     "@a2a-js/sdk": "1.0.0-beta.0",
     "@red-cup-engineering/a2a-contracted-agent-service": "2.0.4",
     "@red-cup-engineering/a2a-rmn-part-service": "1.0.0",
-    "@red-cup-engineering/activitypub-services-section": "1.0.0",
+    "@red-cup-engineering/activitypub-services-section": "1.0.2",
     "@red-cup-engineering/enterprise-account-provisioning-service": "1.0.0",
-    "@red-cup-engineering/rmn-semantic-conformance": "6.0.0",
+    "@red-cup-engineering/rmn-semantic-conformance": "6.0.1",
     "@red-cup-engineering/x402-services-section": "1.2.0",
     "@x402/core": "2.19.0",
     "@x402/evm": "2.19.0",
@@ -33,41 +34,5 @@
   },
   "engines": {
     "node": ">=22.18"
-  },
-  "x-agentic-metro-enterprise": {
-    "node-id": "x402-exact-purchase-service",
-    "actor": "urn:ame:x402-exact-purchase-service",
-    "organizational-kind": "public-protocol-provider",
-    "owners": [
-      "red-cup-engineering"
-    ],
-    "operation-catalog": {
-      "purchase-x402-exact-resource": {
-        "contract": "content/contracts/purchase-x402-exact-resource.rml",
-        "protocol": "x402 v2",
-        "scheme": "exact",
-        "payer": "ERC-1271 enterprise account"
-      }
-    },
-    "admission": "one HTTPS resource, exact positive integer maximum amount, explicit EIP-155 CAIP-2 network and RPC, one OCapN sturdy reference, and encrypted policy-signer custody bound to a deployed enterprise account",
-    "refusal": "direct EOA payer identity, decimal amount, implicit network, price above admitted maximum, non-x402 response, unsettled payment, or authority wider than the named resource"
-  },
-  "x-semiotic-voxel": {
-    "profile": "org.harmonious-union.semiotic-voxel.v1",
-    "owner": "red-cup-engineering",
-    "kind": "capability-cell",
-    "actor": "urn:ame:x402-exact-purchase-service",
-    "operations": [
-      "purchase-x402-exact-resource"
-    ],
-    "capabilities": [
-      {
-        "capability": "x402-exact-purchase-service",
-        "faces": [
-          "purchase-x402-exact-resource"
-        ]
-      }
-    ],
-    "package": "@red-cup-engineering/x402-exact-purchase-service"
   }
 }

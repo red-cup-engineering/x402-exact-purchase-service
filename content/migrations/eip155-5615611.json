@@ -3,7 +3,7 @@
   "code": "SUCCESSOR_CHAIN_IDENTITY_UNBOUND",
   "state": "unavailable",
   "nodeId": "x402-exact-purchase-service",
-  "surface": "capability-cell-identity",
+  "surface": "all-active-faces",
   "deployment": {
     "chain": "eip155:5615611",
     "exchange": "0xc4234dc42c9d93bc7d61b0354aba2729ae52e322",

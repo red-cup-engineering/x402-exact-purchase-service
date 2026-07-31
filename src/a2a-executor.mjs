@@ -27,6 +27,7 @@ export async function executeOperation(request, options = {}) {
   }
   const payer = await (options.openEnterpriseAccountPayer ?? openEnterpriseAccountPayer)(
     options.account ?? {
+      deploymentManifestPath: process.env.EVM_DEPLOYMENT_MANIFEST,
       accountBindingPath: process.env.ACCOUNT_BINDING,
       keystorePath: process.env.ACCOUNT_KEYSTORE,
       passwordFile: process.env.ACCOUNT_PASSWORD_FILE,

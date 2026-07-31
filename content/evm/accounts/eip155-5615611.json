@@ -1,0 +1,51 @@
+{
+  "profile": "org.emsenn.evm.sovereign-enterprise-account.v3",
+  "enterprise": {
+    "nodeId": "x402-exact-purchase-service",
+    "urn": "urn:ame:x402-exact-purchase-service",
+    "enterpriseId": "0x162f074f9d43afbd390d22ac545db3ac08501a14dbb9144c6ffa75ae055494da"
+  },
+  "chain": {
+    "chainId": 5615611,
+    "caip2": "eip155:5615611"
+  },
+  "account": {
+    "address": "0xc56ddfb186ab8169b1b6235d1125e832f80803a2",
+    "caip10": "eip155:5615611:0xc56ddfb186ab8169b1b6235d1125e832f80803a2"
+  },
+  "factory": {
+    "address": "0x402616b746c56deb665bd163f32ec4b8e7dc0916",
+    "userSalt": "0x8f364cd8d07fd056c53f03dc30c4d8ccd729a4e13789d9be7d220f791964cd1d"
+  },
+  "policy": {
+    "signer": "0xb4325657c3ea79e5ffea72454568ea918518c9f8",
+    "custody": "remote-cloud-kms-hsm",
+    "keyVersion": "projects/five-six-one-group-dev/locations/us-central1/keyRings/zero-custody-semiotic/cryptoKeys/x402-exact-policy-signer/cryptoKeyVersions/1"
+  },
+  "deployment": {
+    "transaction": "0x5c82ed108e6a6018cad4585fe4f8fcf705845aef53433b4437505b28280594e2",
+    "block": 1237
+  },
+  "accounting": {
+    "authority": {
+      "enterpriseUrn": "urn:ame:x402-exact-purchase-service",
+      "nodeId": "x402-exact-purchase-service"
+    },
+    "funding": {
+      "source": "remote-cloud-kms-treasury",
+      "treasury": "0xacd5243c5734f68e866047231f1017a8a9832c3e",
+      "custody": "remote-cloud-kms-hsm",
+      "keyVersion": "projects/five-six-one-group-dev/locations/us-central1/keyRings/zero-custody-semiotic/cryptoKeys/a5615611-contract-deployer/cryptoKeyVersions/1",
+      "minimumWei": "10000000000000000",
+      "balanceWei": "10000000000000000",
+      "transactions": []
+    },
+    "chain": {
+      "deployment": {
+        "transaction": "0x5c82ed108e6a6018cad4585fe4f8fcf705845aef53433b4437505b28280594e2",
+        "block": 1237
+      },
+      "idempotentReconciliation": false
+    }
+  }
+}

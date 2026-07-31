@@ -14,6 +14,7 @@ function option(name) {
 }
 
 const payer = await openEnterpriseAccountPayer({
+  deploymentManifestPath: option("--deployment-manifest"),
   accountBindingPath: option("--account-binding"),
   keystorePath: option("--keystore"),
   passwordFile: option("--password-file"),

@@ -9,10 +9,15 @@ import {
   x402SettlementEvidence,
 } from "@red-cup-engineering/x402-services-section";
 import {
+  assertTerminalSettlementEvidence,
   openEnterpriseAccountPayer,
   purchaseAndAwaitExactResource,
 } from "../src/purchase.mjs";
 import { X402_EXACT_PURCHASE_LAW } from "../src/law.mjs";
+import {
+  loadSuccessorX402Binding,
+  requireActiveSuccessorRecord,
+} from "../src/successor-deployment.mjs";
 
 function required(name) {
   const value = process.env[name];
@@ -71,28 +76,39 @@ async function receiptState(path) {
 }
 
 export async function main() {
-  const network = required("SETTLEMENT_CAIP2");
-  const settlement = required("SETTLEMENT_ACCOUNT");
-  const asset = required("X402_ASSET");
+  const payer = await openEnterpriseAccountPayer({
+    deploymentManifestPath: process.env.EVM_DEPLOYMENT_MANIFEST,
+    accountBindingPath: process.env.ACCOUNT_BINDING,
+    keystorePath: process.env.ACCOUNT_KEYSTORE,
+    passwordFile: process.env.ACCOUNT_PASSWORD_FILE,
+  });
+  const network = payer.network;
+  const settlement = payer.caip10;
+  const economic = await loadSuccessorX402Binding({
+    path: process.env.X402_BINDING,
+    deployment: {
+      chain: payer.network,
+      exchange: payer.exchange,
+    },
+    account: payer.caip10,
+    nodeId: "x402-exact-purchase-service",
+  });
+  const asset = economic.asset;
   const resource = "/x402/x402-exact-purchase/invoke";
   const receiptPath = required("X402_RECEIPT_PATH");
   const priced = await quote();
-  const offer = await jsonFile(required("CAPABILITY_OFFER_PATH"));
+  const offer = requireActiveSuccessorRecord(
+    await jsonFile(required("CAPABILITY_OFFER_PATH")),
+    "org.emsenn.capability-offer.v3",
+    "x402-exact-purchase-service",
+  );
   if (offer.price.amount !== priced.atomicAmount || offer.price.network !== network
       || offer.price.asset.toLowerCase() !== asset.toLowerCase()
       || offer.price.payTo?.toLowerCase() !== settlement.split(":").at(-1).toLowerCase()) {
     throw new Error("published offer drifted from the hired pricing provider");
   }
-  const payer = await openEnterpriseAccountPayer({
-    accountBindingPath: required("ACCOUNT_BINDING"),
-    keystorePath: required("ACCOUNT_KEYSTORE"),
-    passwordFile: required("ACCOUNT_PASSWORD_FILE"),
-  });
-  if (payer.caip10.toLowerCase() !== settlement.toLowerCase()) {
-    throw new Error("purchase payer and seller settlement account must be the same cell controller");
-  }
   const downstreamSturdyRef = (await readFile(required("DOWNSTREAM_OCAPN_STURDYREF_FILE"), "utf8")).trim();
-  const downstreamRpcUrl = required("DOWNSTREAM_RPC_URL");
+  const downstreamRpcUrl = payer.rpc;
   const capabilityTerritory = required("CAPABILITY_TERRITORY");
   const recovered = await receiptState(receiptPath);
   const pending = new Map(recovered.intents);
@@ -118,6 +134,7 @@ export async function main() {
         type: recovery ? "X402PaidExactPurchaseRecoveryReceipt" : "X402PaidExactPurchaseReceipt",
         invocation,
         settlement: settlementEvidence,
+        settlementEvidence: result.delivery.settlementEvidence,
         result,
       };
       terminal.set(invocation, receipt);
@@ -167,6 +184,11 @@ export async function main() {
         type: "X402ExactPurchaseReceipt",
         law: X402_EXACT_PURCHASE_LAW.id,
         customer: payer.caip10,
+        exchange: {
+          network: payer.network,
+          address: payer.exchange,
+          deploymentBlock: payer.deploymentBlock,
+        },
         resource: intent.request.url,
         requirement: {
           scheme: "exact",
@@ -180,10 +202,12 @@ export async function main() {
         settlement: delivered.settlement,
         delivery: delivered,
       };
+      assertTerminalSettlementEvidence(result, delivered);
       const receipt = {
         type: "X402PaidExactPurchaseRecoveryReceipt",
         invocation,
         settlement: settlementEvidence,
+        settlementEvidence: delivered.settlementEvidence,
         result,
       };
       terminal.set(invocation, receipt);
@@ -203,7 +227,7 @@ export async function main() {
   }
   const boundary = createExactEvmPaymentBoundary({
     network,
-    facilitatorUrl: required("X402_FACILITATOR_URL"),
+    facilitatorUrl: economic.facilitatorUrl,
     routes: {
       [`POST ${resource}`]: {
         accepts: [{
@@ -212,7 +236,7 @@ export async function main() {
           price: {
             amount: priced.atomicAmount,
             asset,
-            extra: { name: required("X402_ASSET_NAME"), version: required("X402_ASSET_VERSION") },
+            extra: { name: economic.assetName, version: economic.assetVersion },
           },
           payTo: settlement.split(":").at(-1),
         }],

@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=exec
-WorkingDirectory=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/web-services-section/services/x402-services-section/services/x402-exact-purchase-service
+WorkingDirectory=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service
 Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=PORT=15630
@@ -14,12 +14,13 @@ Environment=ACTIVITYPUB_IDENTIFIER=x402-exact-purchase
 Environment="ACTIVITYPUB_ACTOR_NAME=x402 Exact Purchase Service"
 Environment="ACTIVITYPUB_ACTOR_SUMMARY=Buys one exact-EVM x402 resource as a deployed ERC-1271 enterprise account under attenuated OCapN authority."
 Environment=ACTIVITYPUB_CELL_ID=ni:///sha-256;2iUXxv8i9rJoE51qfLecQkZslScvNLp2LXq2tyALYFk
-Environment=ACTIVITYPUB_CONTROLLER=did:pkh:eip155:5615610:0xac5118d879ec103fed7e650fe0741632d069dcb5
-Environment=ACTIVITYPUB_KEYS_PATH=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/data/activitypub/keys.json
-Environment=ACTIVITYPUB_STATE_PATH=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/data/activitypub/state.jsonl
-Environment=ACTIVITYPUB_INBOX_BEARER_TOKEN_FILE=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/data/activitypub/inbox-bearer.token
-Environment=ACTIVITYPUB_OUTBOX_PATH=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/content/activitypub/outbox.json
-ExecStart=/home/emsenn/.config/nvm/versions/node/v24.13.1/bin/node node_modules/@emsenn/activitypub-services-section/src/server.mjs
+Environment=EVM_DEPLOYMENT_MANIFEST=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/blockchain-services-section/services/ethereum-services-section/data/deployments/eip155-5615611-semiotic-exchange.json
+Environment=ACCOUNT_BINDING=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/content/evm/accounts/eip155-5615611.json
+Environment=ACTIVITYPUB_KEYS_PATH=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/data/activitypub/keys.json
+Environment=ACTIVITYPUB_STATE_PATH=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/data/activitypub/state.jsonl
+Environment=ACTIVITYPUB_INBOX_BEARER_TOKEN_FILE=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/data/activitypub/inbox-bearer.token
+Environment=ACTIVITYPUB_OUTBOX_PATH=/home/emsenn/info/lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/web-services-section/services/x402-services-section/services/x402-exact-purchase-service/content/activitypub/outbox.json
+ExecStart=/home/emsenn/.config/nvm/versions/node/v24.13.1/bin/node bin/activitypub-server.mjs
 Restart=always
 RestartSec=2
 NoNewPrivileges=true

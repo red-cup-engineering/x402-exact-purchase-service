@@ -2,11 +2,16 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
-import { openSettlementSigner } from "@red-cup-engineering/enterprise-account-provisioning-service/custody";
 import { X402_EXACT_PURCHASE_LAW } from "./law.mjs";
+import {
+  loadSuccessorAccountBinding,
+  SuccessorChainMigrationObstruction,
+} from "./successor-deployment.mjs";
 
 const CAIP2 = /^eip155:[1-9][0-9]*$/u;
 const POSITIVE_INTEGER = /^[1-9][0-9]*$/u;
+const ADDRESS = /^0x[0-9a-f]{40}$/u;
+const HASH = /^0x[0-9a-f]{64}$/u;
 
 function exactNetwork(value) {
   if (!CAIP2.test(value ?? "")) throw new TypeError("network must be one explicit EIP-155 CAIP-2 identifier");
@@ -35,6 +40,76 @@ export class X402ResourceResponseError extends Error {
     this.contentType = contentType;
     this.bodySha256 = bodySha256;
   }
+}
+
+export class IncompleteSettlementEvidenceError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "IncompleteSettlementEvidenceError";
+    this.code = "X402_TERMINAL_SETTLEMENT_EVIDENCE_INCOMPLETE";
+    this.type = "X402TerminalSettlementEvidenceRefusal";
+  }
+}
+
+function incomplete(message) {
+  throw new IncompleteSettlementEvidenceError(message);
+}
+
+function exactJoin(value, label) {
+  if (!HASH.test(value?.demand ?? "")) incomplete(`${label}.demand must be one demand content address`);
+  if (label !== "result" && !HASH.test(value?.offer ?? "")) {
+    incomplete(`${label}.offer must be one offer content address`);
+  }
+  if (!HASH.test(value?.transactionHash ?? "") || !Number.isSafeInteger(value?.logIndex) || value.logIndex < 0) {
+    incomplete(`${label} must name one exact transaction/log coordinate`);
+  }
+}
+
+export function assertTerminalSettlementEvidence(receipt, terminal) {
+  const evidence = terminal?.settlementEvidence;
+  if (evidence?.type !== "SemioticExchangeTerminalSettlementEvidence") {
+    incomplete("terminal delivery must carry SemioticExchangeTerminalSettlementEvidence");
+  }
+  const exchange = evidence.exchange;
+  if (exchange?.network !== receipt?.exchange?.network
+      || exchange?.address?.toLowerCase() !== receipt?.exchange?.address
+      || !ADDRESS.test(exchange?.address?.toLowerCase() ?? "")) {
+    incomplete("terminal exchange coordinate does not match the admitted successor deployment");
+  }
+  const joins = evidence.joins;
+  if (!HASH.test(joins?.demand ?? "") || !HASH.test(joins?.offer ?? "")
+      || !HASH.test(joins?.result?.contentAddress ?? "")) {
+    incomplete("terminal evidence requires exact demand, offer, and result content addresses");
+  }
+  exactJoin(joins.purchase, "purchase");
+  exactJoin(joins.result, "result");
+  if (joins.purchase.demand !== joins.demand || joins.purchase.offer !== joins.offer
+      || joins.result.demand !== joins.demand) {
+    incomplete("demand, offer, purchase, and result joins do not commute");
+  }
+  const consideration = evidence.consideration;
+  const requirement = receipt.requirement;
+  const payer = receipt.customer?.split(":").at(-1)?.toLowerCase();
+  if (consideration?.network !== requirement?.network
+      || consideration?.network !== exchange.network
+      || consideration?.asset?.toLowerCase() !== requirement?.asset?.toLowerCase()
+      || consideration?.amount !== requirement?.amount
+      || consideration?.payer?.toLowerCase() !== payer
+      || consideration?.payee?.toLowerCase() !== requirement?.payTo?.toLowerCase()
+      || !ADDRESS.test(consideration?.asset?.toLowerCase() ?? "")
+      || !ADDRESS.test(consideration?.payer?.toLowerCase() ?? "")
+      || !ADDRESS.test(consideration?.payee?.toLowerCase() ?? "")
+      || !HASH.test(consideration?.transactionHash?.toLowerCase() ?? "")) {
+    incomplete("terminal consideration must carry the exact network, asset, amount, payer, payee, and transaction");
+  }
+  const settlementReceipt = consideration.receipt;
+  if (settlementReceipt?.transactionHash?.toLowerCase() !== consideration.transactionHash.toLowerCase()
+      || settlementReceipt?.status !== 1
+      || !Number.isSafeInteger(settlementReceipt?.blockNumber) || settlementReceipt.blockNumber < 0
+      || !HASH.test(settlementReceipt?.blockHash?.toLowerCase() ?? "")) {
+    incomplete("terminal consideration must include one successful exact transaction receipt");
+  }
+  return terminal;
 }
 
 async function digestBody(response) {
@@ -75,23 +150,40 @@ async function exactJsonResponse(response, boundary) {
 }
 
 export async function openEnterpriseAccountPayer({
+  deploymentManifestPath,
   accountBindingPath,
   keystorePath,
   passwordFile,
 } = {}) {
-  const binding = JSON.parse(await readFile(accountBindingPath, "utf8"));
-  exactNetwork(binding?.chain?.caip2);
+  const active = await loadSuccessorAccountBinding({
+    manifestPath: deploymentManifestPath,
+    accountBindingPath,
+    nodeId: "x402-exact-purchase-service",
+  });
+  const binding = active.binding;
   const account = binding?.account?.address?.toLowerCase();
   const policySigner = binding?.policy?.signer?.toLowerCase();
   if (!/^0x[0-9a-f]{40}$/u.test(account ?? "") || !/^0x[0-9a-f]{40}$/u.test(policySigner ?? "")) {
     throw new Error("payer binding must name one enterprise account and policy signer");
+  }
+  let openSettlementSigner;
+  try {
+    ({ openSettlementSigner } = await import("@red-cup-engineering/enterprise-account-provisioning-service/custody"));
+  } catch (cause) {
+    throw new SuccessorChainMigrationObstruction(
+      "x402-exact-purchase-service requires a provisioner-owned successor policy-signer capability; the predecessor local-custody subpath is not an exported active interface",
+      { nodeId: "x402-exact-purchase-service", cause },
+    );
   }
   const controller = await openSettlementSigner({ path: keystorePath, passwordFile });
   if (controller.address.toLowerCase() !== policySigner) {
     throw new Error("encrypted custody does not control the enterprise account policy signer");
   }
   return Object.freeze({
-    network: binding.chain.caip2,
+    network: active.deployment.chain,
+    exchange: active.deployment.exchange,
+    deploymentBlock: active.deployment.deploymentBlock,
+    rpc: active.deployment.rpc,
     caip10: binding.account.caip10,
     signer: Object.freeze({
       address: account,
@@ -117,6 +209,9 @@ export async function purchaseExactResource({
   requiredSturdyRef(sturdyRef);
   if (payer?.network !== selectedNetwork || payer?.signer?.address == null) {
     throw new Error("payer is not bound to the selected settlement network");
+  }
+  if (!ADDRESS.test(payer?.exchange ?? "")) {
+    throw new Error("payer is not bound to the canonical SemioticExchange deployment");
   }
   const protocol = httpClient ?? (() => {
     const client = new x402Client();
@@ -180,6 +275,11 @@ export async function purchaseExactResource({
     type: "X402ExactPurchaseReceipt",
     law: X402_EXACT_PURCHASE_LAW.id,
     customer: payer.caip10,
+    exchange: Object.freeze({
+      network: selectedNetwork,
+      address: payer.exchange,
+      deploymentBlock: payer.deploymentBlock,
+    }),
     resource: url,
     requirement: eligible[0],
     invocation: responseBody.invocation,
@@ -207,6 +307,7 @@ export async function awaitPurchasedResult({
       if (body.terminal?.type?.endsWith("Refusal")) {
         throw new Error(`paid capability refused delivery: ${body.terminal.reason ?? "unknown refusal"}`);
       }
+      assertTerminalSettlementEvidence(receipt, body.terminal);
       return Object.freeze({ ...receipt, delivery: body.terminal });
     }
     await new Promise((resolve, reject) => {

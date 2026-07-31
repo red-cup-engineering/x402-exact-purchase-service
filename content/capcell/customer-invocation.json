@@ -1,67 +1,15 @@
 {
-  "url": "https://bare-cedar-fog.561.group/x402/software-mission-execution/invoke",
-  "network": "eip155:5615610",
-  "maximumAmount": "33",
-  "body": {
-    "id": "urn:union:self-improvement:x402-exact-purchase-runtime-contracts:2026-07-25",
-    "objective": "Improve the x402 exact purchase capability by adding exact exported request, receipt, refusal, and state schemas that its executable consumes for runtime admission and output construction. Preserve ERC-1271 payer identity, explicit CAIP-2 network selection, exact integer atomic settlement amounts, attenuated OCapN authority, exactly-once paid invocation, repeatable read-only observation, and the absence of an invented completion deadline.",
-    "taskClass": "x402-exact-purchase-self-improvement",
-    "focusPaths": [
-      "src/purchase.mjs",
-      "src/contracts.mjs",
-      "test/purchase.test.mjs"
-    ],
-    "writablePaths": [
-      "src/purchase.mjs",
-      "src/contracts.mjs",
-      "test/purchase.test.mjs",
-      "package.json"
-    ],
-    "readablePaths": [
-      "package.json",
-      "content/contracts/purchase-x402-exact-resource.rml",
-      "src/law.mjs",
-      "src/purchase.mjs",
-      "src/a2a-executor.mjs",
-      "bin/x402-server.mjs",
-      "test/purchase.test.mjs"
-    ],
-    "workType": "software-engineering",
-    "requiredCapabilities": [
-      "software-engineering"
-    ],
-    "verifyCommand": "npm run verify",
-    "acceptanceCommand": "npm run verify",
-    "constraints": [
-      "Runtime code must consume the schemas; do not add inert schema documents",
-      "Do not introduce direct EOA payer identity",
-      "Do not use decimal monetary arithmetic",
-      "Do not add a universal completion timeout",
-      "Keep chain, RPC, resource, price, polling, and custody bindings parameterized",
-      "Preserve unknown values rather than coercing them to zero"
-    ],
-    "testVectors": [
-      {
-        "id": "runtime-contract-consumption",
-        "given": [
-          "one malformed purchase request",
-          "one admitted purchase request",
-          "one terminal delivered lot",
-          "one terminal refusal"
-        ],
-        "when": "the executable admits, executes, observes, and returns the operation",
-        "then": [
-          "malformed input is refused by the exported request contract",
-          "receipt and state carriers are constructed through exported contracts",
-          "all exact monetary amounts remain integer strings or rational numerator/denominator pairs"
-        ],
-        "forbidden": [
-          "documentation-only schema",
-          "decimal amount",
-          "implicit chain",
-          "invented completion deadline"
-        ]
-      }
-    ]
-  }
+  "type": "SuccessorChainMigrationObstruction",
+  "code": "SUCCESSOR_CHAIN_IDENTITY_UNBOUND",
+  "state": "unavailable",
+  "nodeId": "x402-exact-purchase-service",
+  "surface": "customer-invocation",
+  "deployment": {
+    "chain": "eip155:5615611",
+    "exchange": "0xc4234dc42c9d93bc7d61b0354aba2729ae52e322",
+    "deploymentBlock": 70,
+    "deploymentTransaction": "0xc9fc39f125d55ead39635cf0f4941b9b4dbebffd390e34bc4fc64f6bd0901203",
+    "manifest": "lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/blockchain-services-section/services/ethereum-services-section/data/deployments/eip155-5615611-semiotic-exchange.json"
+  },
+  "requirement": "Provision and verify one eip155:5615611 EnterpriseAccount for x402-exact-purchase-service; verify its successor x402 facilitator, asset contract, and payee; then regenerate its account/x402 bindings, Agent Card, capability identity, and offer through their owning services."
 }

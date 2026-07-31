@@ -1,6 +1,6 @@
 {
   "name": "x402 Exact Purchase Service",
-  "description": "Buys one exact-EVM x402 resource as a deployed ERC-1271 enterprise account under attenuated OCapN authority.",
+  "description": "Buys one exact-EVM x402 resource as a deployed ERC-1271 enterprise account under attenuated OCapN authority. Active settlement is unavailable until the recorded eip155:5615611 identity migration is completed.",
   "supportedInterfaces": [
     {
       "url": "${BASE_URL}/a2a/jsonrpc",
@@ -30,7 +30,6 @@
         "required": true,
         "params": {
           "profile": "org.emsenn.rmn.sovereign-circuit-interface.v1",
-          "account": "eip155:5615610:0xac5118d879ec103fed7e650fe0741632d069dcb5",
           "authority": "ni:///sha-256;8fDfzZgqS3zYE9SJBM0PshwXIRsOv5ivonknljg7fGk",
           "custody": "ni:///sha-256;KVIdeoNQ1SV0pe5DSFYz4EE-LxvEW4JGAo_j3zKnfzo",
           "territory": "ni:///sha-256;hb07D_c2CzmyeG59ktqGCa1nH_Zt1km4lCMUSxoJhfE",
@@ -58,17 +57,85 @@
             "behavior": {
               "factors": [
                 {
-                  "inputs": ["request"],
-                  "outputs": ["receipt"],
+                  "inputs": [
+                    "request"
+                  ],
+                  "outputs": [
+                    "receipt"
+                  ],
                   "rows": [
-                    {"input":[{"positiveEvidence":false,"negativeEvidence":false}],"output":[{"positiveEvidence":false,"negativeEvidence":false}]},
-                    {"input":[{"positiveEvidence":true,"negativeEvidence":false}],"output":[{"positiveEvidence":true,"negativeEvidence":false}]},
-                    {"input":[{"positiveEvidence":false,"negativeEvidence":true}],"output":[{"positiveEvidence":false,"negativeEvidence":true}]},
-                    {"input":[{"positiveEvidence":true,"negativeEvidence":true}],"output":[{"positiveEvidence":true,"negativeEvidence":true}]}
+                    {
+                      "input": [
+                        {
+                          "positiveEvidence": false,
+                          "negativeEvidence": false
+                        }
+                      ],
+                      "output": [
+                        {
+                          "positiveEvidence": false,
+                          "negativeEvidence": false
+                        }
+                      ]
+                    },
+                    {
+                      "input": [
+                        {
+                          "positiveEvidence": true,
+                          "negativeEvidence": false
+                        }
+                      ],
+                      "output": [
+                        {
+                          "positiveEvidence": true,
+                          "negativeEvidence": false
+                        }
+                      ]
+                    },
+                    {
+                      "input": [
+                        {
+                          "positiveEvidence": false,
+                          "negativeEvidence": true
+                        }
+                      ],
+                      "output": [
+                        {
+                          "positiveEvidence": false,
+                          "negativeEvidence": true
+                        }
+                      ]
+                    },
+                    {
+                      "input": [
+                        {
+                          "positiveEvidence": true,
+                          "negativeEvidence": true
+                        }
+                      ],
+                      "output": [
+                        {
+                          "positiveEvidence": true,
+                          "negativeEvidence": true
+                        }
+                      ]
+                    }
                   ]
                 }
               ]
             }
+          },
+          "settlementDeployment": {
+            "chain": "eip155:5615611",
+            "exchange": "0xc4234dc42c9d93bc7d61b0354aba2729ae52e322",
+            "deploymentBlock": 70,
+            "deploymentTransaction": "0xc9fc39f125d55ead39635cf0f4941b9b4dbebffd390e34bc4fc64f6bd0901203",
+            "manifest": "lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/blockchain-services-section/services/ethereum-services-section/data/deployments/eip155-5615611-semiotic-exchange.json"
+          },
+          "availability": {
+            "state": "unavailable",
+            "code": "SUCCESSOR_CHAIN_IDENTITY_UNBOUND",
+            "requirement": "Provision and verify one eip155:5615611 EnterpriseAccount for x402-exact-purchase-service; verify its successor x402 facilitator, asset contract, and payee; then regenerate its account/x402 bindings, Agent Card, capability identity, and offer through their owning services."
           }
         }
       },
@@ -81,7 +148,18 @@
           "cell": "ni:///sha-256;2iUXxv8i9rJoE51qfLecQkZslScvNLp2LXq2tyALYFk",
           "sku": "ni:///sha-256;pMiMtvHEynQ4UYRhKSt4tgoLgtV8pXNheV7PgTLzDbY",
           "capability": "ni:///sha-256;NNhMz_THxHvEi5V_7dwduZteH46tzyOtDqBctYsmib8",
-          "controller": "did:pkh:eip155:5615610:0xac5118d879ec103fed7e650fe0741632d069dcb5"
+          "settlementDeployment": {
+            "chain": "eip155:5615611",
+            "exchange": "0xc4234dc42c9d93bc7d61b0354aba2729ae52e322",
+            "deploymentBlock": 70,
+            "deploymentTransaction": "0xc9fc39f125d55ead39635cf0f4941b9b4dbebffd390e34bc4fc64f6bd0901203",
+            "manifest": "lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/blockchain-services-section/services/ethereum-services-section/data/deployments/eip155-5615611-semiotic-exchange.json"
+          },
+          "availability": {
+            "state": "unavailable",
+            "code": "SUCCESSOR_CHAIN_IDENTITY_UNBOUND",
+            "requirement": "Provision and verify one eip155:5615611 EnterpriseAccount for x402-exact-purchase-service; verify its successor x402 facilitator, asset contract, and payee; then regenerate its account/x402 bindings, Agent Card, capability identity, and offer through their owning services."
+          }
         }
       }
     ],
@@ -89,17 +167,29 @@
   },
   "securitySchemes": {},
   "securityRequirements": [],
-  "defaultInputModes": ["application/rmn+cbor"],
-  "defaultOutputModes": ["application/rmn+cbor"],
+  "defaultInputModes": [
+    "application/rmn+cbor"
+  ],
+  "defaultOutputModes": [
+    "application/rmn+cbor"
+  ],
   "skills": [
     {
       "id": "purchase-x402-exact-resource",
       "name": "Purchase x402 exact resource",
       "description": "Purchase one x402 exact-EVM resource through the cell's enterprise account.",
-      "tags": ["x402", "purchase", "erc-1271"],
+      "tags": [
+        "x402",
+        "purchase",
+        "erc-1271"
+      ],
       "examples": [],
-      "inputModes": ["application/rmn+cbor"],
-      "outputModes": ["application/rmn+cbor"],
+      "inputModes": [
+        "application/rmn+cbor"
+      ],
+      "outputModes": [
+        "application/rmn+cbor"
+      ],
       "securityRequirements": []
     }
   ],
