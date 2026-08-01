@@ -13,7 +13,6 @@ import {
   openEnterpriseAccountPayer,
   purchaseAndAwaitExactResource,
 } from "../src/purchase.mjs";
-import { X402_EXACT_PURCHASE_LAW } from "../src/law.mjs";
 import {
   loadSuccessorX402Binding,
   requireActiveSuccessorRecord,
@@ -182,7 +181,6 @@ export async function main() {
       }
       const result = {
         type: "X402ExactPurchaseReceipt",
-        law: X402_EXACT_PURCHASE_LAW.id,
         customer: payer.caip10,
         exchange: {
           network: payer.network,

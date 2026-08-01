@@ -6,7 +6,6 @@
   "description": "Buys one x402 exact-EVM resource as a sovereign ERC-1271 enterprise account.",
   "exports": {
     ".": "./src/purchase.mjs",
-    "./law": "./src/law.mjs",
     "./a2a-executor": "./src/a2a-executor.mjs",
     "./successor-activation": "./src/successor-activation.mjs"
   },
@@ -16,7 +15,7 @@
     "serve-x402-exact-purchase-seller": "./scripts/x402-server.mjs"
   },
   "scripts": {
-    "check": "node --check src/law.mjs && node --check src/successor-deployment.mjs && node --check src/successor-activation.mjs && node --check src/purchase.mjs && node --check src/a2a-executor.mjs && node --check scripts/purchase.mjs && node --check scripts/execute-a2a-message.mjs && node --check scripts/activitypub-server.mjs && node --check scripts/x402-server.mjs && node --check scripts/project-successor-activation-records.mjs",
+    "check": "node --check src/successor-deployment.mjs && node --check src/successor-activation.mjs && node --check src/purchase.mjs && node --check src/a2a-executor.mjs && node --check scripts/purchase.mjs && node --check scripts/execute-a2a-message.mjs && node --check scripts/activitypub-server.mjs && node --check scripts/x402-server.mjs && node --check scripts/project-successor-activation-records.mjs",
     "test": "node --test test/*.test.mjs",
     "verify": "npm run check && npm test"
   },

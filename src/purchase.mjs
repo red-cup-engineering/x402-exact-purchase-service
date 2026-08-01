@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
-import { X402_EXACT_PURCHASE_LAW } from "./law.mjs";
 import {
   loadSuccessorAccountBinding,
   SuccessorChainMigrationObstruction,
@@ -273,7 +272,6 @@ export async function purchaseExactResource({
   }
   return Object.freeze({
     type: "X402ExactPurchaseReceipt",
-    law: X402_EXACT_PURCHASE_LAW.id,
     customer: payer.caip10,
     exchange: Object.freeze({
       network: selectedNetwork,
