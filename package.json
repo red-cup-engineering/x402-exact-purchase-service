@@ -26,6 +26,7 @@
     "@red-cup-engineering/activitypub-services-section": "1.0.2",
     "@red-cup-engineering/enterprise-account-provisioning-service": "1.0.1",
     "@red-cup-engineering/rmn-semantic-conformance": "6.0.2",
+    "@red-cup-engineering/rmn-semantic-conformance-die": "6.0.1",
     "@red-cup-engineering/x402-services-section": "1.2.1",
     "@x402/core": "2.19.0",
     "@x402/evm": "2.19.0",
