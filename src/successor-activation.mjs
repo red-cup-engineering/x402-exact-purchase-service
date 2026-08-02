@@ -1,4 +1,4 @@
-import { rawNiUri } from "@red-cup-engineering/rmn-semantic-conformance-die/canonical-cbor";
+import { rawNiUri } from "@red-cup-engineering/relation-model-notation-runtime/canonical-cbor";
 
 const CHAIN = "eip155:5615611";
 const NODE = "x402-exact-purchase-service";
@@ -6,8 +6,6 @@ const URN = `urn:ame:${NODE}`;
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/u;
 const HASH = /^0x[0-9a-fA-F]{64}$/u;
 const NI = /^ni:\/\/\/sha-256;[A-Za-z0-9_-]{43}$/u;
-const SKU = "ni:///sha-256;pMiMtvHEynQ4UYRhKSt4tgoLgtV8pXNheV7PgTLzDbY";
-const LAW = "ni:///sha-256;NNhMz_THxHvEi5V_7dwduZteH46tzyOtDqBctYsmib8";
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -93,11 +91,11 @@ export function projectX402SuccessorActivation({ deployment, accountBinding, x40
   const account = exactAccount(accountBinding, successor);
   const economic = exactEconomic(x402Binding, successor, account);
   if (agentCardTemplate === null || typeof agentCardTemplate !== "object" || Array.isArray(agentCardTemplate)) throw new TypeError("the package-owned Agent Card template is required");
-  const identityPayload = { type: "CapabilityCellIdentity", version: 2, sku: SKU, capability: LAW,
+  const identityPayload = { type: "CapabilityCellIdentity", version: 2,
     controller: account.controller, settlementDeployment: successor, x402: economic };
   const identity = Object.freeze({ id: contentAddress(identityPayload), ...identityPayload });
-  const manifestPayload = { type: "CapabilityCellManifest", version: 3, cell: identity.id, sku: SKU,
-    capability: LAW, controller: account.controller, faces: {
+  const manifestPayload = { type: "CapabilityCellManifest", version: 3, cell: identity.id,
+    controller: account.controller, faces: {
       github: { repository: "https://github.com/red-cup-engineering/x402-exact-purchase-service",
         identity: "https://raw.githubusercontent.com/red-cup-engineering/x402-exact-purchase-service/main/content/capcell/identity.json" },
       activitypub: { actor: "https://bare-cedar-fog.561.group/actors/x402-exact-purchase" },
@@ -107,8 +105,8 @@ export function projectX402SuccessorActivation({ deployment, accountBinding, x40
       evm: { network: CHAIN, account: account.caip10, exchange: successor.exchange },
     } };
   const manifest = Object.freeze({ id: contentAddress(manifestPayload), ...manifestPayload });
-  const offerPayload = { kind: "org.emsenn.capability-offer.v3", cell: identity.id, sku: SKU, provider: URN,
-    operation: "purchase-x402-exact-resource", law: LAW,
+  const offerPayload = { kind: "org.emsenn.capability-offer.v3", cell: identity.id, provider: URN,
+    operation: "purchase-x402-exact-resource",
     agentCard: "https://bare-cedar-fog.561.group/a2a/x402-exact-purchase/.well-known/agent-card.json",
     authorization: { profile: "OCapN", grantRequired: true }, price: { protocol: "x402", scheme: "exact",
       network: CHAIN, asset: economic.asset, amount: economic.amount, payTo: economic.payTo,
