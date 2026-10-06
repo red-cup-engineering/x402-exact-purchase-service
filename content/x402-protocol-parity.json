@@ -1,0 +1,37 @@
+{
+  "type": "X402ProtocolParityGate",
+  "version": 1,
+  "observedAt": "2026-10-05T19:51:36-05:00",
+  "package": "@red-cup-engineering/x402-exact-purchase-service",
+  "pinned": {
+    "@x402/core": "2.19.0",
+    "@x402/evm": "2.19.0"
+  },
+  "upstreamObserved": {
+    "@x402/core": "2.28.0",
+    "@x402/evm": "2.28.0"
+  },
+  "admittedPath": {
+    "scheme": "exact",
+    "networkFamily": "eip155",
+    "newAutonomousSpend": "blocked_pending_compatibility_receipt"
+  },
+  "requiredChecks": [
+    "signature-and-account-semantics",
+    "payment-required-parsing",
+    "scheme-and-network-identifiers",
+    "settlement-and-recovery-states",
+    "replay-and-idempotency",
+    "maximum-amount-enforcement",
+    "existing-fixtures",
+    "targeted-regressions"
+  ],
+  "explicitlyNotAdmitted": [
+    "upto",
+    "batch-settlement",
+    "auth-capture"
+  ],
+  "authority": "This gate records compatibility evidence only and grants no spending authority.",
+  "canonicalReceiver": "Semioverse/MetroPlat",
+  "syncBack": "required"
+}
