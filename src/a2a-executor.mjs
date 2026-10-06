@@ -3,6 +3,7 @@ import { extractRmnPart, rmnPart } from "@red-cup-engineering/a2a-rmn-part-servi
 import { decodeSemantic, semanticBytes, semanticId } from "@red-cup-engineering/relation-model-notation-runtime";
 import {
   openEnterpriseAccountPayer,
+  purchaseHttpResource,
   purchaseAndAwaitExactResource,
 } from "./purchase.mjs";
 
@@ -20,12 +21,12 @@ function exact(value) {
 
 export async function executeOperation(request, options = {}) {
   if (!exact(request) || request.provider !== ACTOR) {
-    throw new Error("exact provider-addressed canonical RMN operation is required");
+    throw new Error("exact provider-addressed canonical SEN operation is required");
   }
-  if (request.type !== "X402ExactPurchaseRequest" || !request.purchase || typeof request.purchase !== "object") {
+  if (!["X402ExactPurchaseRequest", "X402HttpPurchaseRequest"].includes(request.type) || !request.purchase || typeof request.purchase !== "object") {
     throw new Error("x402 exact purchase request requires one purchase");
   }
-  const payer = await (options.openEnterpriseAccountPayer ?? openEnterpriseAccountPayer)(
+  const payer = options.payer ?? await (options.openEnterpriseAccountPayer ?? openEnterpriseAccountPayer)(
     options.account ?? {
       deploymentManifestPath: process.env.EVM_DEPLOYMENT_MANIFEST,
       accountBindingPath: process.env.ACCOUNT_BINDING,
@@ -33,12 +34,17 @@ export async function executeOperation(request, options = {}) {
       passwordFile: process.env.ACCOUNT_PASSWORD_FILE,
     },
   );
-  const result = await (options.purchaseAndAwaitExactResource ?? purchaseAndAwaitExactResource)({
+  const purchase = request.type === "X402HttpPurchaseRequest"
+    ? options.purchaseHttpResource ?? purchaseHttpResource
+    : options.purchaseAndAwaitExactResource ?? purchaseAndAwaitExactResource;
+  const result = await purchase({
     ...request.purchase,
     payer,
+    beforePayment: options.beforePayment,
+    onSettlement: options.onSettlement,
   });
   return record({
-    type: "X402ExactPurchaseResult",
+    type: request.type === "X402HttpPurchaseRequest" ? "X402HttpPurchaseResult" : "X402ExactPurchaseResult",
     provider: ACTOR,
     request: request.id,
     result,

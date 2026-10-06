@@ -128,6 +128,9 @@ export async function main() {
         ...request,
         payer,
         fetchImpl: globalThis.fetch,
+        onSettlement: downstream => appendReceipt(receiptPath, {
+          type: "X402DownstreamSettlementObservation", invocation, downstream,
+        }),
       });
       const receipt = {
         type: recovery ? "X402PaidExactPurchaseRecoveryReceipt" : "X402PaidExactPurchaseReceipt",
@@ -143,6 +146,7 @@ export async function main() {
         type: "X402PaidExactPurchaseRefusal",
         invocation,
         settlement: settlementEvidence,
+        ...(error?.receipt === undefined ? {} : { downstream: error.receipt }),
         reason: error instanceof Error ? error.message : String(error),
       };
       terminal.set(invocation, refusal);
