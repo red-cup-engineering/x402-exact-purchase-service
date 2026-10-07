@@ -35,5 +35,11 @@
   },
   "devDependencies": {
     "viem": "2.55.8"
-  }
+  },
+  "files": [
+    "src",
+    "scripts",
+    "content",
+    "README.md"
+  ]
 }
