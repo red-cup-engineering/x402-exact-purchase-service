@@ -1,9 +1,9 @@
 {
   "name": "@red-cup-engineering/x402-exact-purchase-service",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": false,
   "type": "module",
-  "description": "Buys one x402 exact-EVM resource as a sovereign ERC-1271 enterprise account.",
+  "description": "Buys native x402 HTTP resources with an enterprise-owned signer and retains payment and delivery evidence; also supports the private exchange delivery contract.",
   "exports": {
     ".": "./src/purchase.mjs",
     "./a2a-executor": "./src/a2a-executor.mjs",
@@ -21,17 +21,25 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "1.0.0-beta.0",
-    "@red-cup-engineering/a2a-contracted-agent-service": "2.0.5",
-    "@red-cup-engineering/a2a-rmn-part-service": "1.0.1",
-    "@red-cup-engineering/activitypub-services-section": "1.0.2",
-    "@red-cup-engineering/enterprise-account-provisioning-service": "1.0.1",
-    "@red-cup-engineering/relation-model-notation-runtime": "7.0.0",
-    "@red-cup-engineering/x402-services-section": "1.2.1",
+    "@red-cup-engineering/a2a-rmn-part-service": "0.2.0",
+    "@red-cup-engineering/activitypub-services-section": "0.5.0",
+    "@red-cup-engineering/x402-services-section": "0.2.0",
     "@x402/core": "2.19.0",
     "@x402/evm": "2.19.0",
-    "express": "5.2.1"
+    "express": "5.2.1",
+    "@red-cup-engineering/relation-model-notation-cbor-codec": "0.1.0",
+    "@red-cup-engineering/ni-services-section": "0.1.2"
   },
   "engines": {
     "node": ">=22.18"
-  }
+  },
+  "devDependencies": {
+    "viem": "2.55.8"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "content",
+    "README.md"
+  ]
 }

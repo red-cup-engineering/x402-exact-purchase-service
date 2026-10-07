@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { appendFile, mkdir, readFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import express from "express";
 import {
   createExactEvmPaymentBoundary,
@@ -10,7 +11,6 @@ import {
 } from "@red-cup-engineering/x402-services-section";
 import {
   assertTerminalSettlementEvidence,
-  openEnterpriseAccountPayer,
   purchaseAndAwaitExactResource,
 } from "../src/purchase.mjs";
 import {
@@ -75,7 +75,9 @@ async function receiptState(path) {
 }
 
 export async function main() {
-  const payer = await openEnterpriseAccountPayer({
+  const owner = await import(pathToFileURL(resolve(required("X402_OWNER_MODULE"))).href);
+  if (typeof owner.openPayer !== "function") throw new TypeError("owner module must export openPayer(request)");
+  const payer = await owner.openPayer({
     deploymentManifestPath: process.env.EVM_DEPLOYMENT_MANIFEST,
     accountBindingPath: process.env.ACCOUNT_BINDING,
     keystorePath: process.env.ACCOUNT_KEYSTORE,
@@ -128,6 +130,9 @@ export async function main() {
         ...request,
         payer,
         fetchImpl: globalThis.fetch,
+        onSettlement: downstream => appendReceipt(receiptPath, {
+          type: "X402DownstreamSettlementObservation", invocation, downstream,
+        }),
       });
       const receipt = {
         type: recovery ? "X402PaidExactPurchaseRecoveryReceipt" : "X402PaidExactPurchaseReceipt",
@@ -143,6 +148,7 @@ export async function main() {
         type: "X402PaidExactPurchaseRefusal",
         invocation,
         settlement: settlementEvidence,
+        ...(error?.receipt === undefined ? {} : { downstream: error.receipt }),
         reason: error instanceof Error ? error.message : String(error),
       };
       terminal.set(invocation, refusal);

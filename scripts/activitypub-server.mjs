@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { loadSuccessorAccountBinding } from "../src/successor-deployment.mjs";
 
 const active = await loadSuccessorAccountBinding({
@@ -10,7 +11,7 @@ const active = await loadSuccessorAccountBinding({
 });
 const child = spawn(
   process.execPath,
-  ["node_modules/@red-cup-engineering/activitypub-services-section/src/server.mjs"],
+  [fileURLToPath(import.meta.resolve("@red-cup-engineering/activitypub-services-section/server"))],
   {
     env: {
       ...process.env,

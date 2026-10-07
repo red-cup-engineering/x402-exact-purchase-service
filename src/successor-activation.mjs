@@ -1,4 +1,4 @@
-import { rawNiUri } from "@red-cup-engineering/relation-model-notation-runtime/canonical-cbor";
+import { makeNiUri } from "@red-cup-engineering/ni-services-section";
 
 const CHAIN = "eip155:5615611";
 const NODE = "x402-exact-purchase-service";
@@ -14,7 +14,7 @@ function stable(value) {
 }
 
 export function contentAddress(value) {
-  return rawNiUri(JSON.stringify(stable(value)));
+  return makeNiUri(Buffer.from(JSON.stringify(stable(value)), "utf8"));
 }
 
 function exactDeployment(deployment) {

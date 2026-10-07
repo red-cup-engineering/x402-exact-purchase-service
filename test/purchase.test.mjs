@@ -67,6 +67,7 @@ test("purchases exactly one admitted integer-priced requirement", async () => {
   };
   const httpClient = {
     getPaymentRequiredResponse: () => ({
+      x402Version: 2,
       accepts: [{
         scheme: "exact",
         network: "eip155:5",
@@ -77,7 +78,7 @@ test("purchases exactly one admitted integer-priced requirement", async () => {
     }),
     createPaymentPayload: async () => ({ paid: true }),
     encodePaymentSignatureHeader: () => ({ "payment-signature": "signed" }),
-    processPaymentResult: async () => ({ settleResponse: { success: true, transaction: "0xabc" } }),
+    processPaymentResult: async () => ({ settleResponse: { success: true, transaction: HASH("f"), network: "eip155:5" } }),
   };
   const receipt = await purchaseExactResource({
     url: "https://provider.example/invoke",
@@ -87,6 +88,7 @@ test("purchases exactly one admitted integer-priced requirement", async () => {
     network: "eip155:5",
     rpcUrl: "https://rpc.example",
     maximumAmount: "7",
+    asset: "0x4444444444444444444444444444444444444444",
     fetchImpl,
     httpClient,
   });
@@ -99,6 +101,7 @@ test("refuses price drift above the admitted exact amount", async () => {
   const fetchImpl = async () => Response.json({}, { status: 402 });
   const httpClient = {
     getPaymentRequiredResponse: () => ({
+      x402Version: 2,
       accepts: [{ scheme: "exact", network: "eip155:5", amount: "8" }],
     }),
   };
@@ -110,6 +113,7 @@ test("refuses price drift above the admitted exact amount", async () => {
     network: "eip155:5",
     rpcUrl: "https://rpc.example",
     maximumAmount: "7",
+    asset: "0x4444444444444444444444444444444444444444",
     fetchImpl,
     httpClient,
   }), /exactly one admitted/u);
@@ -125,6 +129,7 @@ test("types and digests a non-JSON resource failure without treating HTML as pro
     network: "eip155:5",
     rpcUrl: "https://rpc.example",
     maximumAmount: "7",
+    asset: "0x4444444444444444444444444444444444444444",
     fetchImpl: async () => new Response(responseBody, {
       status: 503,
       headers: { "content-type": "text/html" },

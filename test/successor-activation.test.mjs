@@ -7,8 +7,15 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { projectX402SuccessorActivation } from "../src/successor-activation.mjs";
 
-const deploymentUrl = new URL("../../../../../../blockchain-services-section/services/ethereum-services-section/data/deployments/eip155-5615611-semiotic-exchange.json", import.meta.url);
-const deployment = JSON.parse(await readFile(deploymentUrl, "utf8"));
+// Test-only structural input. This fixture is not evidence of a chain deployment.
+const deployment = { profile: "org.emsenn.evm.standards-deployment.v2", type: "UnionEvmStandardsDeployment",
+  chainId: "eip155:5615611", genesisSha256: "0".repeat(64), deployments: [
+    { standard: "org.ethereum.erc-4337.entry-point.v0.8", role: "account-abstraction-entry-point", address: "0x" + "6".repeat(40) },
+    { standard: "org.emsenn.semiotic-exchange-chain.v1", role: "modeled-union-dimension-exchange",
+      address: "0xc4234dc42c9d93bc7d61b0354aba2729ae52e322", transactionHash: "0x" + "7".repeat(64), blockNumber: 70 },
+    { standard: "org.emsenn.evm.sovereign-enterprise-account.v3", role: "sovereign-settlement-account-factory",
+      address: "0x402616b746c56deb665bd163f32ec4b8e7dc0916" },
+  ] };
 const card = JSON.parse(await readFile(new URL("../content/agent-cards/x402-exact-purchase.json", import.meta.url), "utf8"));
 const factory = "0x402616b746c56deb665bd163f32ec4b8e7dc0916";
 const exchange = "0xc4234dc42c9d93bc7d61b0354aba2729ae52e322";
@@ -66,7 +73,8 @@ test("owning materializer reports a complete repeat as unchanged", async () => {
     await put("content/x402/eip155-5615611.json", economic());
     await put("content/agent-cards/x402-exact-purchase.json", card);
     const script = fileURLToPath(new URL("../scripts/project-successor-activation-records.mjs", import.meta.url));
-    const args = [script, "--root", root, "--deployment", fileURLToPath(deploymentUrl)];
+    await put("deployment.json", deployment);
+    const args = [script, "--root", root, "--deployment", join(root, "deployment.json")];
     const first = spawnSync(process.execPath, args, { encoding: "utf8" });
     assert.equal(first.status, 0, first.stderr);
     assert.equal(JSON.parse(first.stdout).changed.length, 8);
