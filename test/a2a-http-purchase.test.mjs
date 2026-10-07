@@ -96,7 +96,7 @@ export function onSettlement(observation) { retain("settlement",observation); }
       purchase: { url, network, asset, maximumAmount: "70000000" } };
     const request = { id: semanticId(body), ...body }, message = userRmnMessage(semanticBytes(request));
     message.contextId = "original-context"; message.taskId = "original-task";
-    const child = spawn(process.execPath, [fileURLToPath(new URL("../scripts/execute-a2a-message.mjs", import.meta.url)), "--owner-module", ownerPath]);
+    const child = spawn(process.execPath, [process.env.X402_ACTOR_EXECUTABLE ?? fileURLToPath(new URL("../scripts/execute-a2a-message.mjs", import.meta.url)), "--owner-module", ownerPath]);
     let stdout = "", stderr = "";
     child.stdout.on("data", value => stdout += value); child.stderr.on("data", value => stderr += value);
     const terminal = new Promise((resolve, reject) => { child.on("error",reject);child.on("exit",resolve); });
