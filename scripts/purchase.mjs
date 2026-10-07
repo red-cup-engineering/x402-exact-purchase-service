@@ -2,7 +2,7 @@
 import { stat, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { openEnterpriseAccountPayer, purchaseAndAwaitExactResource, purchaseHttpResource } from "../src/purchase.mjs";
+import { purchaseAndAwaitExactResource, purchaseHttpResource } from "../src/purchase.mjs";
 function option(name, required = true) {
   const at = process.argv.indexOf(name);
   const value = at < 0 ? undefined : process.argv[at + 1];
@@ -25,6 +25,7 @@ Settlement does not certify delivery acceptance or independent chain verificatio
 One payment attempt is sent; no automatic retries.
 
 Private exchange purchase:
+  --payer-module MODULE.mjs (owner-held private-exchange wallet)
   --deployment-manifest FILE --account-binding FILE --keystore FILE
   --password-file FILE --url URL --input FILE --sturdyref-file FILE
   --network CAIP2 --rpc-url URL --asset ADDRESS --maximum-amount N
@@ -39,10 +40,13 @@ Private exchange purchase:
   });
   process.stdout.write(`${JSON.stringify(receipt)}\n`);
 } else {
-  const payer = await openEnterpriseAccountPayer({
-    deploymentManifestPath: option("--deployment-manifest"),
-    accountBindingPath: option("--account-binding"),
-    keystorePath: option("--keystore"), passwordFile: option("--password-file"),
+  const owner = await import(pathToFileURL(resolve(option("--payer-module"))).href);
+  if (typeof owner.openPayer !== "function") throw new TypeError("payer module must export openPayer(request)");
+  const payer = await owner.openPayer({
+    deploymentManifestPath: option("--deployment-manifest", false),
+    accountBindingPath: option("--account-binding", false),
+    keystorePath: option("--keystore", false), passwordFile: option("--password-file", false),
+    network: option("--network"),
   });
   const receipt = await purchaseAndAwaitExactResource({
     url: option("--url"), body: await jsonInput(option("--input")),

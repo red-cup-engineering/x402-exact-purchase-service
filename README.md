@@ -13,3 +13,5 @@ The operator-controlled module must export `admitPurchase(proposal)` and `openPa
 The reply retains the original request’s canonical ID, context and task, and carries a nonempty message ID and the independently verifiable output byte identity. Requests are bounded to 1 MiB at the command input. No automatic repayment retry is performed.
 
 `purchaseExactResource` additionally retains the private exchange’s OCapN and terminal-delivery contract. Its private account activation remains a separate requirement for that interface.
+
+For private-exchange purchases and the seller, the owner module supplies `openPayer`; the seller reads its module path from `X402_OWNER_MODULE`. An owner that uses the binding validator may call `openEnterpriseAccountPayer` with its own `openSettlementSigner` function. Provisioning an account and controlling its signer are separate capabilities; the buyer never imports an unexported provisioner custody path. The activation materializer requires an explicit `--deployment` manifest and continues to distinguish configured identities from live observation.

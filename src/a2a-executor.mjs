@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Message, Role } from "@a2a-js/sdk";
 import { extractRmnPart, rmnPart } from "@red-cup-engineering/a2a-rmn-part-service";
-import { decodeSemantic, semanticBytes, semanticId } from "@red-cup-engineering/relation-model-notation-runtime";
+import { decodeSemantic, semanticBytes, semanticId } from "@red-cup-engineering/relation-model-notation-cbor-codec";
 import {
   openEnterpriseAccountPayer,
   purchaseHttpResource,

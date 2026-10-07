@@ -166,6 +166,7 @@ export async function openEnterpriseAccountPayer({
   accountBindingPath,
   keystorePath,
   passwordFile,
+  openSettlementSigner,
 } = {}) {
   const active = await loadSuccessorAccountBinding({
     manifestPath: deploymentManifestPath,
@@ -178,13 +179,10 @@ export async function openEnterpriseAccountPayer({
   if (!/^0x[0-9a-f]{40}$/u.test(account ?? "") || !/^0x[0-9a-f]{40}$/u.test(policySigner ?? "")) {
     throw new Error("payer binding must name one enterprise account and policy signer");
   }
-  let openSettlementSigner;
-  try {
-    ({ openSettlementSigner } = await import("@red-cup-engineering/enterprise-account-provisioning-service/custody"));
-  } catch (cause) {
+  if (typeof openSettlementSigner !== "function") {
     throw new SuccessorChainMigrationObstruction(
-      "x402-exact-purchase-service requires a provisioner-owned successor policy-signer capability; the predecessor local-custody subpath is not an exported active interface",
-      { nodeId: "x402-exact-purchase-service", cause },
+      "the enterprise owner must supply its successor policy-signer custody capability",
+      { nodeId: "x402-exact-purchase-service" },
     );
   }
   const controller = await openSettlementSigner({ path: keystorePath, passwordFile });
