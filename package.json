@@ -21,13 +21,13 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "1.0.0-beta.0",
-    "@red-cup-engineering/a2a-rmn-part-service": "0.2.0",
-    "@red-cup-engineering/activitypub-services-section": "0.5.0",
-    "@red-cup-engineering/x402-services-section": "0.2.0",
+    "@red-cup-engineering/a2a-rmn-part-service": "workspace:*",
+    "@red-cup-engineering/activitypub-services-section": "workspace:*",
+    "@red-cup-engineering/x402-services-section": "workspace:*",
     "@x402/core": "2.19.0",
     "@x402/evm": "2.19.0",
     "express": "5.2.1",
-    "@red-cup-engineering/relation-model-notation-cbor-codec": "0.1.0",
+    "@red-cup-engineering/relation-model-notation-cbor-codec": "workspace:*",
     "@red-cup-engineering/ni-services-section": "0.1.2"
   },
   "engines": {
