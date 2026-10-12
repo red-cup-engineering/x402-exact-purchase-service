@@ -1,0 +1,15 @@
+{
+  "type": "SuccessorChainMigrationObstruction",
+  "code": "SUCCESSOR_CHAIN_IDENTITY_UNBOUND",
+  "state": "unavailable",
+  "nodeId": "x402-exact-purchase-service",
+  "surface": "capability-cell-manifest",
+  "deployment": {
+    "chain": "eip155:5615611",
+    "exchange": "0xc4234dc42c9d93bc7d61b0354aba2729ae52e322",
+    "deploymentBlock": 70,
+    "deploymentTransaction": "0xc9fc39f125d55ead39635cf0f4941b9b4dbebffd390e34bc4fc64f6bd0901203",
+    "manifest": "lib/emsenn/services/561-group/services/red-cup-engineering/services/software-services-section/services/blockchain-services-section/services/ethereum-services-section/data/records/deployment-records/eip155-5615611-semiotic-exchange.json"
+  },
+  "requirement": "Provision and verify one eip155:5615611 EnterpriseAccount for x402-exact-purchase-service; verify its successor x402 facilitator, asset contract, and payee; then regenerate its account/x402 bindings, Agent Card, capability identity, and offer through their owning services."
+}
