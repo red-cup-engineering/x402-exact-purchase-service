@@ -316,6 +316,21 @@ export async function purchaseHttpResource({
     error.receipt = receipt;
     throw error;
   }
+  // Settlement is not evidence of delivery: preserve a charged HTTP error
+  // as an independently actionable failure, not as fulfilled work.
+  if (!paid.ok) {
+    await paid.body?.cancel();
+    const error = new X402ResourceResponseError(
+      `paid resource returned HTTP ${paid.status} after successful settlement`,
+      {
+        boundary: "paid resource response",
+        status: paid.status,
+        contentType: paid.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? null,
+      },
+    );
+    error.receipt = receipt;
+    throw error;
+  }
   const chunks = [];
   let size = 0;
   try {
