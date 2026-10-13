@@ -103,6 +103,34 @@ test("POST preserves exact method, body and caller headers", async () => {
   assert.equal(receipt.request.bodySha256, createHash("sha256").update(calls[1].body).digest("hex"));
 });
 
+test("challenge resource URL is bound to the requested HTTPS URI and query before signing", async () => {
+  for (const alteredUrl of [
+    "https://unrelated.example/report?q=one",
+    "https://ordinary.example/report?q=two",
+    "https://ordinary.example/report",
+  ]) {
+    let calls = 0, intents = 0;
+    const challenged = new Response("", {
+      status: 402,
+      headers: { "payment-required": encodePaymentRequiredHeader({
+        x402Version: 2, resource: { url: alteredUrl }, accepts: [terms],
+      }) },
+    });
+    await assert.rejects(purchaseHttpResource({
+      ...options,
+      beforePayment: () => { intents++; },
+      fetchImpl: async () => { calls++; return challenged; },
+    }), error => {
+      assert.equal(error.code, "X402_RESOURCE_INVALID_RESPONSE");
+      assert.equal(error.boundary, "unpaid resource challenge");
+      assert.equal(error.status, 402);
+      return true;
+    });
+    assert.equal(calls, 1);
+    assert.equal(intents, 0);
+  }
+});
+
 test("wrong token and excessive price cannot reach the signed request", async () => {
   for (const amendment of [{ asset: payTo }, { amount: "8" }]) {
     let calls = 0, intents = 0;
