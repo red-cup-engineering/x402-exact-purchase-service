@@ -272,10 +272,13 @@ export async function purchaseHttpResource({
   try { required = protocol.getPaymentRequiredResponse(name => unpaid.headers.get(name)); }
   finally { await unpaid.body?.cancel(); }
   if (required?.x402Version !== 2) throw new TypeError("one official x402 v2 challenge is required");
-  // The server's signed purchase context must name precisely the HTTPS
-  // resource the customer requested, including its original query. Neither
-  // an unrelated resource nor a stale/rewritten query may authorize payment.
-  if (required.resource?.url !== resource.href) {
+  // Bind the quote to the requested endpoint. A 561 market seller may
+  // advertise the canonical path without caller-supplied query parameters,
+  // while the paid replay retains those exact input parameters. Never admit
+  // a different host, path, scheme, or a *rewritten* nonempty query.
+  const quotedResourceUrl = required.resource?.url;
+  const canonicalEndpointUrl = `${resource.origin}${resource.pathname}`;
+  if (quotedResourceUrl !== resource.href && quotedResourceUrl !== canonicalEndpointUrl) {
     throw new X402ResourceResponseError("x402 v2 challenge names a different resource URL", {
       boundary: "unpaid resource challenge",
       status: 402,
