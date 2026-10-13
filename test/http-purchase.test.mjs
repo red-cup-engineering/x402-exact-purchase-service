@@ -136,7 +136,7 @@ test("a canonical query-free endpoint challenge is payable while preserving the 
         }) },
       });
       assert.equal(init.method, "GET");
-      assert.ok(init.headers["PAYMENT-SIGNATURE"]);
+      assert.ok(new Headers(init.headers).has("payment-signature"));
       return delivered();
     },
   });
