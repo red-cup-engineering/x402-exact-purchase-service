@@ -313,6 +313,21 @@ export async function purchaseHttpResource({
     error.receipt = receipt;
     throw error;
   }
+  // A real charge can coexist with a failed computation/delivery. Keep the
+  // settlement witness, but never represent an HTTP error as purchased output.
+  if (!paid.ok) {
+    await paid.body?.cancel();
+    const error = new X402ResourceResponseError(
+      `paid resource returned HTTP ${paid.status} after successful settlement`,
+      {
+        boundary: "paid resource response",
+        status: paid.status,
+        contentType: paid.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? null,
+      },
+    );
+    error.receipt = receipt;
+    throw error;
+  }
   const chunks = [];
   let size = 0;
   try {
