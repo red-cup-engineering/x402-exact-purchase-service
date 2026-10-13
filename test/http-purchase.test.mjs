@@ -120,6 +120,31 @@ test("settled delivery failure retains the charge evidence and does not invent a
   assert.equal(calls, 2);
 });
 
+test("settled HTTP 503 retains charge evidence but never delivers a failed computation", async () => {
+  let calls = 0, observed;
+  const failure = () => new Response("compute unavailable", { status: 503, headers: {
+    "content-type": "text/plain",
+    "payment-response": encodePaymentResponseHeader({
+      success: true, network, transaction, payer: signer.address,
+    }),
+  } });
+  await assert.rejects(purchaseHttpResource({
+    ...options,
+    onSettlement: receipt => { observed = receipt; },
+    fetchImpl: async () => ++calls === 1 ? challenge() : failure(),
+  }), error => {
+    assert.equal(error.code, "X402_RESOURCE_INVALID_RESPONSE");
+    assert.equal(error.boundary, "paid resource response");
+    assert.equal(error.status, 503);
+    assert.equal(error.receipt?.settlement?.transaction, transaction);
+    assert.equal(error.receipt?.delivery, undefined);
+    return true;
+  });
+  assert.equal(calls, 2);
+  assert.equal(observed?.settlement?.transaction, transaction);
+  assert.equal(observed?.status, 503);
+});
+
 test("a mismatched receipt is retained as reported evidence and refused as payment success", async () => {
   let calls = 0, observed;
   await assert.rejects(purchaseHttpResource({
