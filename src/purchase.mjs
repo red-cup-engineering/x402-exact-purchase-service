@@ -275,6 +275,16 @@ export async function purchaseHttpResource({
   try { required = protocol.getPaymentRequiredResponse(name => unpaid.headers.get(name)); }
   finally { await unpaid.body?.cancel(); }
   if (required?.x402Version !== 2) throw new TypeError("one official x402 v2 challenge is required");
+  // The server's signed purchase context must name precisely the HTTPS
+  // resource the customer requested, including its original query. Neither
+  // an unrelated resource nor a stale/rewritten query may authorize payment.
+  if (required.resource?.url !== resource.href) {
+    throw new X402ResourceResponseError("x402 v2 challenge names a different resource URL", {
+      boundary: "unpaid resource challenge",
+      status: 402,
+      contentType: unpaid.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? null,
+    });
+  }
   const eligible = (required.accepts ?? []).filter(candidate =>
     candidate.scheme === "exact" && candidate.network === selectedNetwork
     && candidate.asset?.toLowerCase() === selectedAsset
