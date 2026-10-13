@@ -93,11 +93,11 @@ test("POST preserves exact method, body and caller headers", async () => {
   assert.equal(receipt.request.bodySha256, createHash("sha256").update(calls[1].body).digest("hex"));
 });
 
-test("challenge resource URL is bound to the requested HTTPS URI and query before signing", async () => {
+test("challenge cannot rewrite the requested origin, path, or nonempty query", async () => {
   for (const alteredUrl of [
     "https://unrelated.example/report?q=one",
     "https://ordinary.example/report?q=two",
-    "https://ordinary.example/report",
+    "https://ordinary.example/other",
   ]) {
     let calls = 0, intents = 0;
     const challenged = new Response("", {
@@ -119,6 +119,31 @@ test("challenge resource URL is bound to the requested HTTPS URI and query befor
     assert.equal(calls, 1);
     assert.equal(intents, 0);
   }
+});
+
+test("a canonical query-free endpoint challenge is payable while preserving the input query", async () => {
+  const canonical = "https://ordinary.example/report";
+  let calls = 0, savedRequest, chargedReceipt;
+  const result = await purchaseHttpResource({
+    ...options,
+    beforePayment: ({ request }) => { savedRequest = request; },
+    onSettlement: receipt => { chargedReceipt = receipt; },
+    fetchImpl: async (requestedUrl, init) => {
+      assert.equal(requestedUrl, url);
+      if (++calls === 1) return new Response("", {
+        status: 402, headers: { "payment-required": encodePaymentRequiredHeader({
+          x402Version: 2, resource: { url: canonical }, accepts: [terms],
+        }) },
+      });
+      assert.equal(init.method, "GET");
+      assert.ok(init.headers["PAYMENT-SIGNATURE"]);
+      return delivered();
+    },
+  });
+  assert.equal(calls, 2);
+  assert.equal(savedRequest.url, url);
+  assert.equal(chargedReceipt.settlement.transaction, transaction);
+  assert.equal(result.delivery.sha256, createHash("sha256").update(Buffer.from([0,255,42])).digest("hex"));
 });
 
 test("wrong token and excessive price cannot reach the signed request", async () => {
