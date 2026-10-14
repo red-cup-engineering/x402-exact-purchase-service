@@ -18,7 +18,7 @@ try {
   const input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
   process.stdout.write(`${JSON.stringify(await executeA2aMessage(input, {
     admitPurchase: owner.admitPurchase, openPayer: owner.openPayer,
-    beforePayment: owner.beforePayment, onSettlement: owner.onSettlement,
+    beforePayment: owner.beforePayment, onSettlement: owner.onSettlement, onDelivery: owner.onDelivery,
   }))}\n`);
 } catch (error) {
   process.stderr.write(`${error.stack ?? error.message}\n`);
