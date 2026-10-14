@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/purchase.mjs",
     "./a2a-executor": "./src/a2a-executor.mjs",
-    "./successor-activation": "./src/successor-activation.mjs"
+    "./successor-activation": "./src/successor-activation.mjs",
+    "./successor-deployment": "./src/successor-deployment.mjs"
   },
   "bin": {
     "purchase-x402-exact-resource": "./scripts/purchase.mjs",
