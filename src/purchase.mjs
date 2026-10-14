@@ -447,6 +447,16 @@ export async function awaitPurchasedResult({
         assertTerminalSettlementEvidence(receipt, body.terminal);
         return Object.freeze({ ...receipt, delivery: body.terminal });
       }
+      // The seller's result face admits only these provisional states.
+      // Silently polling arbitrary JSON forever can hide a malformed result
+      // endpoint after the buyer has already been charged.
+      if (!["pending", "settlement-pending", "recovery-pending", "recovery-started"].includes(body?.status)) {
+        throw new X402ResourceResponseError("paid result returned an unknown lifecycle state", {
+          boundary: "purchased result response",
+          status: response.status,
+          contentType: response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? null,
+        });
+      }
       await delay(pollIntervalMs, undefined, { signal });
     }
   } catch (cause) {
