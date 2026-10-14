@@ -1,5 +1,7 @@
 # Native HTTP purchasing
 
+**Canonical package ownership:** this standalone repository is the intended Red Cup source owner for `@red-cup-engineering/x402-exact-purchase-service`. Its embedded same-name predecessor still exists inside `computer-engineering-services-section`; that is a migration source, **not** a second merchant, wallet, or independent buyer authority. Their successor-deployment source blobs coincide, and the standalone package now exports the existing `./successor-deployment` subpath. Their A2A transport, policy-signer custody and activation materialization still differ; removing or rebinding the predecessor requires exact dependency closure and downstream receiving, not blind file deletion. Neither source claims that consolidation or live chain receiving has already occurred.
+
 `purchaseHttpResource` buys an HTTPS representation using the official x402 SDK. The owner supplies the signer, CAIP-10 account, network, token and maximum amount. `beforePayment` receives the exact request and signed payment before transmission; `onSettlement` receives the facilitator’s report before delivery is read. Retain both in the purchasing enterprise’s own books. A settlement report, received bytes and requester acceptance are distinct observations.
 
 For an A2A purchase proposal, run:
@@ -8,7 +10,7 @@ For an A2A purchase proposal, run:
 execute-x402-exact-purchase-a2a-message --owner-module /absolute/path/owner.mjs < proposal.json
 ```
 
-The operator-controlled module must export `admitPurchase(proposal)` and `openPayer(admittedPurchase)`. Admission returns the exact URL, network, asset and maximumAmount the owner permits, plus any permitted method, headers and body. Refuse by throwing. The caller’s proposed spending ceiling is not wallet authority. Export `beforePayment` and `onSettlement` to retain observations in the owner’s existing journal. Wallet loading occurs after admission. Ordinary HTTP purchasing uses that owner wallet without requiring private-chain activation.
+The operator-controlled module must export `admitPurchase(proposal)` and `openPayer(admittedPurchase)`. Admission returns the exact URL, network, asset and maximumAmount the owner permits, plus any permitted method, headers and body. Refuse by throwing. The caller’s proposed spending ceiling is not wallet authority. Export `beforePayment`, `onSettlement`, and `onDelivery` to retain exact intent, facilitator-report, and digest-only delivered-byte observations in the owner’s existing journal. Wallet loading occurs after admission. Ordinary HTTP purchasing uses that owner wallet without requiring private-chain activation.
 
 The reply retains the original request’s canonical ID, context and task, and carries a nonempty message ID and the independently verifiable output byte identity. Requests are bounded to 1 MiB at the command input. No automatic repayment retry is performed.
 
