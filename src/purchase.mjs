@@ -319,7 +319,19 @@ export async function purchaseHttpResource({
     settlementMatchesRequirements,
     status: paid.status,
   };
-  if (settlement !== undefined) await onSettlement?.(structuredClone(receipt));
+  if (settlement !== undefined) {
+    try {
+      await onSettlement?.(structuredClone(receipt));
+    } catch (cause) {
+      // A provider can have reported a completed charge even if the buyer's
+      // journal fails. Never discard its receipt or silently retry payment.
+      try { await paid.body?.cancel(); } catch { /* retain the charge witness */ }
+      const error = new Error("reported x402 settlement could not be journaled by the buyer", { cause });
+      error.code = "X402_SETTLEMENT_OBSERVER_REFUSED";
+      error.receipt = receipt;
+      throw error;
+    }
+  }
   if (!settlementMatchesRequirements) {
     await paid.body?.cancel();
     const error = new Error("paid response does not carry a matching successful x402 settlement");
