@@ -158,6 +158,61 @@ test("wrong token and excessive price cannot reach the signed request", async ()
   }
 });
 
+
+test("an independently admitted payee cannot be redirected by the unsigned challenge", async () => {
+  let calls = 0, intents = 0;
+  await assert.rejects(purchaseHttpResource({
+    ...options, expectedPayTo: "0x3333333333333333333333333333333333333333",
+    beforePayment: () => { intents++; },
+    fetchImpl: async () => { calls++; return challenge(); },
+  }), /exactly one admitted/u);
+  assert.equal(calls, 1, "the signed payment must never be sent");
+  assert.equal(intents, 0, "there is no payment intent for a refused recipient");
+
+  let acceptedCalls = 0;
+  const receipt = await purchaseHttpResource({
+    ...options, expectedPayTo: payTo.toUpperCase().replace("0X", "0x"),
+    fetchImpl: async () => ++acceptedCalls === 1 ? challenge() : delivered(),
+  });
+  assert.equal(acceptedCalls, 2);
+  assert.equal(receipt.requirement.payTo, payTo);
+  await assert.rejects(purchaseHttpResource({
+    ...options, expectedPayTo: "not-an-address", fetchImpl: async () => { throw new Error("network must not be entered"); },
+  }), /expectedPayTo must be/u);
+});
+
+test("contradictory reported payee or asset is retained but never accepted as successful settlement", async () => {
+  for (const contradicted of [
+    { payee: "0x3333333333333333333333333333333333333333" },
+    { payTo: "0x3333333333333333333333333333333333333333" },
+    { asset: "0x3333333333333333333333333333333333333333" },
+  ]) {
+    let calls = 0, witness;
+    const client = {
+      getPaymentRequiredResponse: () => ({ x402Version: 2, resource: { url }, accepts: [terms] }),
+      createPaymentPayload: async () => ({ accepted: terms }),
+      encodePaymentSignatureHeader: () => ({ "payment-signature": "signed-for-test" }),
+      processPaymentResult: async () => ({ settleResponse: {
+        success: true, network, transaction, payer: signer.address, ...contradicted,
+      } }),
+    };
+    await assert.rejects(purchaseHttpResource({
+      ...options, expectedPayTo: payTo, httpClient: client,
+      onSettlement: value => { witness = value; },
+      fetchImpl: async () => ++calls === 1 ? challenge() : delivered(),
+    }), error => {
+      assert.equal(error.code, "X402_SETTLEMENT_NOT_VERIFIED");
+      assert.equal(error.receipt?.settlementMatchesRequirements, false);
+      assert.equal(error.receipt?.delivery, undefined);
+      return true;
+    });
+    assert.equal(calls, 2, "one signed payment attempt, never an automatic retry");
+    assert.equal(witness.settlementMatchesRequirements, false);
+    assert.deepEqual(Object.keys(contradicted).map(key => witness.settlement[key]),
+      Object.values(contradicted), "retain the untrusted facilitator fields for reconciliation");
+  }
+});
+
 test("settled delivery failure retains the charge evidence and does not invent a successful result", async () => {
   let calls = 0, observed;
   await assert.rejects(purchaseHttpResource({

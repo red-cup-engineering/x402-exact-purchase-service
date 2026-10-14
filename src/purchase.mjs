@@ -209,7 +209,7 @@ export async function openEnterpriseAccountPayer({
  * before transmission and settlement before reading delivery.
  */
 export async function purchaseHttpResource({
-  url, method = "GET", body, headers = {}, payer, network, asset, maximumAmount,
+  url, method = "GET", body, headers = {}, payer, network, asset, maximumAmount, expectedPayTo,
   rpcUrl, fetchImpl = globalThis.fetch, httpClient, signal,
   maximumResponseBytes = 16 * 1024 * 1024, beforePayment, onSettlement, onDelivery,
 } = {}) {
@@ -225,6 +225,14 @@ export async function purchaseHttpResource({
   const ceiling = exactAmount(maximumAmount, "maximumAmount");
   const selectedAsset = asset?.toLowerCase();
   if (!ADDRESS.test(selectedAsset ?? "")) throw new TypeError("asset must explicitly name the admitted EVM token");
+  // Recipient authority belongs to the buyer, not an untrusted 402 challenge.
+  // Existing owners may admit a URL alone; when a payee is explicitly admitted,
+  // reject recipient substitution before calling the signer or sending payment.
+  if (expectedPayTo !== undefined && (typeof expectedPayTo !== "string"
+      || !ADDRESS.test(expectedPayTo.toLowerCase()))) {
+    throw new TypeError("expectedPayTo must be an independently authorized EVM recipient address");
+  }
+  const admittedPayTo = expectedPayTo?.toLowerCase();
   const account = payer?.signer?.address?.toLowerCase();
   if (payer?.network !== selectedNetwork || !ADDRESS.test(account ?? "")
       || payer?.caip10?.toLowerCase() !== `${selectedNetwork}:${account}`) {
@@ -289,6 +297,7 @@ export async function purchaseHttpResource({
     candidate.scheme === "exact" && candidate.network === selectedNetwork
     && candidate.asset?.toLowerCase() === selectedAsset
     && ADDRESS.test(candidate.payTo?.toLowerCase() ?? "")
+    && (admittedPayTo === undefined || candidate.payTo.toLowerCase() === admittedPayTo)
     && POSITIVE_INTEGER.test(candidate.amount ?? "")
     && BigInt(candidate.amount) <= BigInt(ceiling));
   if (eligible.length !== 1) throw new Error("resource did not offer exactly one admitted exact-EVM payment requirement");
@@ -330,8 +339,14 @@ export async function purchaseHttpResource({
   const settlementMatchesRequirements = settlement?.success === true
     && settlement.network === selectedNetwork
     && HASH.test(settlement.transaction?.toLowerCase() ?? "")
-    && (settlement.payer === undefined || settlement.payer.toLowerCase() === account)
-    && (settlement.amount === undefined || settlement.amount === requirement.amount);
+    && (settlement.payer === undefined || (typeof settlement.payer === "string" && settlement.payer.toLowerCase() === account))
+    && (settlement.amount === undefined || settlement.amount === requirement.amount)
+    // These fields are optional in the HTTP facilitator report, but if present
+    // they must not contradict the signed payment requirement. This is still
+    // reported settlement, not independent on-chain confirmation.
+    && (settlement.payee === undefined || (typeof settlement.payee === "string" && settlement.payee.toLowerCase() === requirement.payTo.toLowerCase()))
+    && (settlement.payTo === undefined || (typeof settlement.payTo === "string" && settlement.payTo.toLowerCase() === requirement.payTo.toLowerCase()))
+    && (settlement.asset === undefined || (typeof settlement.asset === "string" && settlement.asset.toLowerCase() === selectedAsset));
   const receipt = {
     type: "X402HttpPurchaseReceipt", customer: payer.caip10, request, requirement,
     ...(settlement === undefined ? {} : { settlement }),
