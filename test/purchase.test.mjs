@@ -222,6 +222,7 @@ test("paid asynchronous observations retain the original receipt on transport, H
     { label: "incomplete onchain evidence", fetchImpl: async () => Response.json({
       status: "terminal", terminal: { type: "DeliveredLot", settlementEvidence: { type: "SemioticExchangeTerminalSettlementEvidence" } },
     }) },
+    { label: "unrecognized lifecycle", fetchImpl: async () => Response.json({ ok: true, status: "looks-finished" }) },
     { label: "terminal refusal", fetchImpl: async () => Response.json({
       status: "terminal", terminal: { type: "CapabilityRefusal", reason: "provider unavailable" },
     }) },
