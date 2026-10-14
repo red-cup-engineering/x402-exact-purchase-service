@@ -302,11 +302,30 @@ export async function purchaseHttpResource({
     request: { ...request, headers: { ...requestHeaders }, ...(serialized === undefined ? {} : { body: serialized }) },
     requirement: structuredClone(requirement), paymentPayload: structuredClone(payload),
   });
-  const paid = await fetchImpl(resource.href, {
-    ...init, headers: { ...requestHeaders, ...protocol.encodePaymentSignatureHeader(payload) },
-    signal: signal ?? AbortSignal.timeout(30_000),
+  // The signed authorization might have reached the merchant even if the
+  // transport or payment-response decoder fails. This content-addressable
+  // request/terms witness contains NO replayable payment signature or body.
+  const pendingAttempt = Object.freeze({
+    type: "X402HttpPaymentAttempt", customer: payer.caip10,
+    request, requirement, settlementStatus: "unconfirmed",
   });
-  const payment = await protocol.processPaymentResult(payload, name => paid.headers.get(name), paid.status);
+  let paid, payment;
+  try {
+    paid = await fetchImpl(resource.href, {
+      ...init, headers: { ...requestHeaders, ...protocol.encodePaymentSignatureHeader(payload) },
+      signal: signal ?? AbortSignal.timeout(30_000),
+    });
+    payment = await protocol.processPaymentResult(payload, name => paid.headers.get(name), paid.status);
+  } catch (cause) {
+    try { await paid?.body?.cancel(); } catch { /* original uncertainty prevails */ }
+    const error = new Error("signed x402 payment outcome unknown; reconcile before retry", { cause });
+    error.code = "X402_PAYMENT_OUTCOME_UNKNOWN";
+    error.receipt = Object.freeze({
+      ...pendingAttempt,
+      ...(paid === undefined ? {} : { status: paid.status }),
+    });
+    throw error;
+  }
   const settlement = payment.settleResponse;
   const settlementMatchesRequirements = settlement?.success === true
     && settlement.network === selectedNetwork
@@ -334,7 +353,11 @@ export async function purchaseHttpResource({
   }
   if (!settlementMatchesRequirements) {
     await paid.body?.cancel();
-    const error = new Error("paid response does not carry a matching successful x402 settlement");
+    const pending = settlement?.errorReason === "settlement_pending";
+    const error = new Error(pending
+      ? "x402 payment transaction is pending; reconcile the reported transaction before retry"
+      : "paid response does not carry a matching successful x402 settlement");
+    error.code = pending ? "X402_SETTLEMENT_PENDING" : "X402_SETTLEMENT_NOT_VERIFIED";
     error.receipt = receipt;
     throw error;
   }
