@@ -9,9 +9,9 @@ test("a provider-addressed HTTP request crosses the native actor boundary with o
       asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "70000000",
       payer: { caip10: "forged" }, beforePayment: "forged", onSettlement: "forged" } };
   const request = { id: semanticId(body), ...body };
-  const payer = { caip10: "owner" }, beforePayment = () => {}, onSettlement = () => {};
+  const payer = { caip10: "owner" }, beforePayment = () => {}, onSettlement = () => {}, onDelivery = () => {};
   let received;
-  const output = await executeOperation(request, { payer, beforePayment, onSettlement,
+  const output = await executeOperation(request, { payer, beforePayment, onSettlement, onDelivery,
     admitPurchase: proposal => {
       assert.equal(proposal.purchase.maximumAmount, "70000000");
       return { url: proposal.purchase.url, network: "eip155:8453",
@@ -24,6 +24,7 @@ test("a provider-addressed HTTP request crosses the native actor boundary with o
   assert.equal(received.maximumAmount, "7");
   assert.equal(received.beforePayment, beforePayment);
   assert.equal(received.onSettlement, onSettlement);
+  assert.equal(received.onDelivery, onDelivery);
   assert.equal(output.type, "X402HttpPurchaseResult");
   assert.equal(output.request, request.id);
   assert.equal(output.provider, ACTOR);
@@ -91,6 +92,7 @@ export function admitPurchase(proposal) { retain("admission",proposal); return {
 export function openPayer(admitted) { retain("wallet",admitted); return {signer,network:${JSON.stringify(network)},caip10:${JSON.stringify(network)}+":"+signer.address}; }
 export function beforePayment(intent) { retain("intent",intent); }
 export function onSettlement(observation) { retain("settlement",observation); }
+export function onDelivery(observation) { retain("delivery",observation); }
 `);
     const body = { type: "X402HttpPurchaseRequest", provider: ACTOR,
       purchase: { url, network, asset, maximumAmount: "70000000" } };
@@ -110,11 +112,14 @@ export function onSettlement(observation) { retain("settlement",observation); }
     assert.equal(result.result.requirement.amount,"7");assert.equal(result.result.delivery.body,"AP8q");
     assert.equal(result.result.settlement.transaction,transaction);
     const book = (await readFile(bookPath,"utf8")).trim().split("\n").map(line => JSON.parse(line));
-    assert.deepEqual(book.map(entry => entry.phase),["admission","wallet","intent","settlement"]);
+    assert.deepEqual(book.map(entry => entry.phase),["admission","wallet","intent","settlement","delivery"]);
     assert.equal(book[0].value.purchase.maximumAmount,"70000000");
     assert.equal(book[1].value.maximumAmount,"7");
     assert.equal(book[2].value.paymentPayload.accepted.amount,"7");
     assert.equal(book[3].value.settlement.transaction,transaction);
+    assert.equal(book[4].value.delivery.bytes,3);
+    assert.equal(book[4].value.requesterAccepted,null);
+    assert.equal("body" in book[4].value.delivery,false);
     assert.equal(journal.length,1);assert.equal(journal[0].payload.authorization.value,"7");
   } finally {
     server.closeAllConnections();await new Promise(resolve => server.close(resolve));
