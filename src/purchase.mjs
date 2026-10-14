@@ -430,23 +430,33 @@ export async function awaitPurchasedResult({
   if (!Number.isSafeInteger(pollIntervalMs) || pollIntervalMs < 1) {
     throw new TypeError("pollIntervalMs must be a positive safe integer");
   }
-  for (;;) {
-    signal?.throwIfAborted();
-    const response = await fetchImpl(receipt.result, {
-      headers: { accept: "application/json" }, redirect: "error",
-      signal: signal ?? AbortSignal.timeout(30_000),
-    });
-    const body = await exactJsonResponse(response, "purchased result response");
-    await onObservation?.(Object.freeze({ status: response.status, body }));
-    if (!response.ok) throw new Error(`purchased result refused observation: HTTP ${response.status}`);
-    if (body.status === "terminal") {
-      if (body.terminal?.type?.endsWith("Refusal")) {
-        throw new Error(`paid capability refused delivery: ${body.terminal.reason ?? "unknown refusal"}`);
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const response = await fetchImpl(receipt.result, {
+        headers: { accept: "application/json" }, redirect: "error",
+        signal: signal ?? AbortSignal.timeout(30_000),
+      });
+      const body = await exactJsonResponse(response, "purchased result response");
+      await onObservation?.(Object.freeze({ status: response.status, body }));
+      if (!response.ok) throw new Error(`purchased result refused observation: HTTP ${response.status}`);
+      if (body.status === "terminal") {
+        if (body.terminal?.type?.endsWith("Refusal")) {
+          throw new Error(`paid capability refused delivery: ${body.terminal.reason ?? "unknown refusal"}`);
+        }
+        assertTerminalSettlementEvidence(receipt, body.terminal);
+        return Object.freeze({ ...receipt, delivery: body.terminal });
       }
-      assertTerminalSettlementEvidence(receipt, body.terminal);
-      return Object.freeze({ ...receipt, delivery: body.terminal });
+      await delay(pollIntervalMs, undefined, { signal });
     }
-    await delay(pollIntervalMs, undefined, { signal });
+  } catch (cause) {
+    // Payment was already submitted before polling. Preserve its immutable
+    // receipt on EVERY failed read, timeout, refusal and evidence mismatch:
+    // the caller must reconcile or recover, not buy the same lot a second time.
+    if (cause instanceof Error && cause.receipt === undefined) {
+      cause.receipt = receipt;
+    }
+    throw cause;
   }
 }
 
