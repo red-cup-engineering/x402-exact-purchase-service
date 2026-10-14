@@ -221,6 +221,28 @@ test("a mismatched receipt is retained as reported evidence and refused as payme
   assert.equal(observed.settlement.network, "eip155:1");
 });
 
+test("buyer preserves settlement evidence even when the owner's charge journal fails", async () => {
+  let requests = 0, observed;
+  await assert.rejects(purchaseHttpResource({
+    ...options,
+    onSettlement: receipt => {
+      observed = receipt;
+      throw new Error("owner journal unavailable");
+    },
+    fetchImpl: async () => ++requests === 1 ? challenge() : delivered(),
+  }), error => {
+    assert.equal(error.code, "X402_SETTLEMENT_OBSERVER_REFUSED");
+    assert.match(error.message, /could not be journaled/u);
+    assert.match(error.cause?.message ?? "", /journal unavailable/u);
+    assert.equal(error.receipt?.settlement?.transaction, transaction);
+    assert.equal(error.receipt?.request?.url, url);
+    assert.equal(error.receipt?.delivery, undefined);
+    return true;
+  });
+  assert.equal(requests, 2, "no automatic second payment");
+  assert.equal(observed.settlement.transaction, transaction);
+});
+
 test("an interrupted paid request leaves the owner's intent and never automatically repays", async () => {
   let calls = 0, intent;
   await assert.rejects(purchaseHttpResource({
