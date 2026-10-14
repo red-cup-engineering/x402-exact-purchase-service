@@ -211,7 +211,7 @@ export async function openEnterpriseAccountPayer({
 export async function purchaseHttpResource({
   url, method = "GET", body, headers = {}, payer, network, asset, maximumAmount,
   rpcUrl, fetchImpl = globalThis.fetch, httpClient, signal,
-  maximumResponseBytes = 16 * 1024 * 1024, beforePayment, onSettlement,
+  maximumResponseBytes = 16 * 1024 * 1024, beforePayment, onSettlement, onDelivery,
 } = {}) {
   const resource = new URL(url);
   if (resource.protocol !== "https:" || resource.username || resource.password || resource.hash) {
@@ -366,7 +366,7 @@ export async function purchaseHttpResource({
     throw error;
   }
   const bytes = Buffer.concat(chunks);
-  return Object.freeze({
+  const delivered = Object.freeze({
     ...receipt,
     delivery: Object.freeze({
       status: paid.status, ok: paid.ok, contentType: paid.headers.get("content-type"),
@@ -374,6 +374,36 @@ export async function purchaseHttpResource({
       encoding: "base64", body: bytes.toString("base64"),
     }),
   });
+  // Delivery is a separate buyer-observed event, not a facilitator receipt or
+  // customer acceptance. Record only the output's content address and byte
+  // measurement: the potentially private purchased body remains with its buyer.
+  if (onDelivery !== undefined) {
+    const observed = Object.freeze({
+      type: "X402HttpPurchaseDeliveryObservation",
+      customer: delivered.customer,
+      request: delivered.request,
+      requirement: delivered.requirement,
+      settlement: delivered.settlement,
+      settlementMatchesRequirements: delivered.settlementMatchesRequirements,
+      delivery: Object.freeze({
+        status: delivered.delivery.status,
+        contentType: delivered.delivery.contentType,
+        bytes: delivered.delivery.bytes,
+        sha256: delivered.delivery.sha256,
+      }),
+      requesterAccepted: null,
+    });
+    try {
+      await onDelivery(structuredClone(observed));
+    } catch (cause) {
+      // No retry of an already-settled payment, and no lost purchased bytes.
+      const error = new Error("paid x402 delivery could not be journaled by the buyer", { cause });
+      error.code = "X402_DELIVERY_OBSERVER_REFUSED";
+      error.receipt = delivered;
+      throw error;
+    }
+  }
+  return delivered;
 }
 
 export async function purchaseExactResource(options = {}) {
