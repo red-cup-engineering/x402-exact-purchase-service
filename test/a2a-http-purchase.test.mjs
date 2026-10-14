@@ -9,9 +9,9 @@ test("a provider-addressed HTTP request crosses the native actor boundary with o
       asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "70000000",
       payer: { caip10: "forged" }, beforePayment: "forged", onSettlement: "forged" } };
   const request = { id: semanticId(body), ...body };
-  const payer = { caip10: "owner" }, beforePayment = () => {}, onSettlement = () => {};
+  const payer = { caip10: "owner" }, beforePayment = () => {}, onSettlement = () => {}, onDelivery = () => {};
   let received;
-  const output = await executeOperation(request, { payer, beforePayment, onSettlement,
+  const output = await executeOperation(request, { payer, beforePayment, onSettlement, onDelivery,
     admitPurchase: proposal => {
       assert.equal(proposal.purchase.maximumAmount, "70000000");
       return { url: proposal.purchase.url, network: "eip155:8453",
@@ -24,6 +24,7 @@ test("a provider-addressed HTTP request crosses the native actor boundary with o
   assert.equal(received.maximumAmount, "7");
   assert.equal(received.beforePayment, beforePayment);
   assert.equal(received.onSettlement, onSettlement);
+  assert.equal(received.onDelivery, onDelivery);
   assert.equal(output.type, "X402HttpPurchaseResult");
   assert.equal(output.request, request.id);
   assert.equal(output.provider, ACTOR);
@@ -101,6 +102,7 @@ test("an independently received SEN reply preserves owner pricing and the observ
       },
       beforePayment: intent => { events.push("signed intent retained"); assert.equal(intent.paymentPayload.accepted.amount, "7"); },
       onSettlement: observation => { events.push("settlement report retained"); assert.equal(observation.settlement.transaction, transaction); },
+      onDelivery: observation => { events.push("delivery hash retained"); assert.equal(observation.delivery.bytes, 3); assert.equal("body" in observation.delivery,false); },
     });
     const received = admitSenMessage(JSON.parse(JSON.stringify(output)), { role: ROLE_AGENT });
     const result = decodeSemantic(received.part.bytes);
@@ -110,7 +112,7 @@ test("an independently received SEN reply preserves owner pricing and the observ
     assert.equal(result.result.requirement.amount, "7"); assert.equal(result.result.delivery.body, "AP8q");
     assert.equal(result.result.settlement.transaction, transaction);
     assert.equal(signedAmount, "7"); assert.equal(calls, 2);
-    assert.deepEqual(events, ["owner admitted", "owner wallet opened", "signed intent retained", "signed request received", "settlement report retained"]);
+    assert.deepEqual(events, ["owner admitted", "owner wallet opened", "signed intent retained", "signed request received", "settlement report retained", "delivery hash retained"]);
   } finally {
     server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
   }
