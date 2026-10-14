@@ -58,6 +58,7 @@ export async function executeOperation(source, options = {}) {
     payer,
     beforePayment: options.beforePayment,
     onSettlement: options.onSettlement,
+    onDelivery: options.onDelivery,
   });
   return record({
     type: request.type === "X402HttpPurchaseRequest" ? "X402HttpPurchaseResult" : "X402ExactPurchaseResult",
