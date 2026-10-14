@@ -243,6 +243,45 @@ test("buyer preserves settlement evidence even when the owner's charge journal f
   assert.equal(observed.settlement.transaction, transaction);
 });
 
+test("delivered bytes become a separately witnessed buyer event, without disclosing purchased content", async () => {
+  const sequence = [];
+  let delivery;
+  let requests = 0;
+  const output = await purchaseHttpResource({
+    ...options,
+    onSettlement: () => sequence.push("settlement"),
+    onDelivery: value => { sequence.push("delivery"); delivery = value; },
+    fetchImpl: async () => ++requests === 1 ? challenge() : delivered(),
+  });
+  assert.deepEqual(sequence, ["settlement", "delivery"]);
+  assert.equal(requests, 2);
+  assert.equal(delivery.type, "X402HttpPurchaseDeliveryObservation");
+  assert.equal(delivery.delivery.sha256, output.delivery.sha256);
+  assert.equal(delivery.delivery.bytes, output.delivery.bytes);
+  assert.equal(delivery.delivery.status, 200);
+  assert.equal(delivery.settlement.transaction, transaction);
+  assert.equal(delivery.requesterAccepted, null);
+  assert.equal("body" in delivery.delivery, false, "do not persist customer's purchased bytes through the recorder");
+  assert.equal("paymentPayload" in delivery, false, "no signed authorization in seller/recipient receipt");
+});
+
+test("delivery journal failure preserves exact paid bytes and transaction; never retries", async () => {
+  let requests = 0;
+  await assert.rejects(purchaseHttpResource({
+    ...options,
+    onDelivery: () => { throw new Error("journal offline"); },
+    fetchImpl: async () => ++requests === 1 ? challenge() : delivered(),
+  }), error => {
+    assert.equal(error.code, "X402_DELIVERY_OBSERVER_REFUSED");
+    assert.match(error.cause?.message ?? "", /journal offline/u);
+    assert.equal(error.receipt?.settlement?.transaction, transaction);
+    assert.equal(error.receipt?.delivery?.sha256, createHash("sha256").update(Buffer.from([0,255,42])).digest("hex"));
+    assert.equal(error.receipt?.delivery?.body, Buffer.from([0,255,42]).toString("base64"));
+    return true;
+  });
+  assert.equal(requests, 2, "a failed ledger write must not trigger another charge");
+});
+
 test("an interrupted paid request leaves the owner's intent and never automatically repays", async () => {
   let calls = 0, intent;
   await assert.rejects(purchaseHttpResource({
