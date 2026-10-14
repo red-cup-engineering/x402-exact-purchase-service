@@ -200,3 +200,42 @@ test("refuses a terminal delivery that omits exact joins or consideration receip
     return true;
   });
 });
+
+test("paid asynchronous observations retain the original receipt on transport, HTTP, and terminal-evidence failures", async () => {
+  const receipt = Object.freeze({
+    type: "X402ExactPurchaseReceipt",
+    result: "https://provider.example/result/paid",
+    customer: payer.caip10,
+    exchange: { network: payer.network, address: payer.exchange },
+    settlement: { success: true, network: payer.network, transaction: HASH("f") },
+    requirement: {
+      network: payer.network,
+      asset: "0x4444444444444444444444444444444444444444",
+      amount: "7",
+      payTo: "0x2222222222222222222222222222222222222222",
+    },
+  });
+  const observations = [
+    { label: "connection failure", fetchImpl: async () => { throw new Error("network unreachable"); } },
+    { label: "paid HTTP error", fetchImpl: async () => Response.json({ error: "unavailable" }, { status: 503 }) },
+    { label: "invalid content", fetchImpl: async () => new Response("<html>broken</html>", { status: 200, headers: { "content-type": "text/html" } }) },
+    { label: "incomplete onchain evidence", fetchImpl: async () => Response.json({
+      status: "terminal", terminal: { type: "DeliveredLot", settlementEvidence: { type: "SemioticExchangeTerminalSettlementEvidence" } },
+    }) },
+    { label: "terminal refusal", fetchImpl: async () => Response.json({
+      status: "terminal", terminal: { type: "CapabilityRefusal", reason: "provider unavailable" },
+    }) },
+  ];
+  for (const { label, fetchImpl } of observations) {
+    let calls = 0;
+    await assert.rejects(awaitPurchasedResult({
+      receipt, fetchImpl: async (...args) => { ++calls; return fetchImpl(...args); },
+    }), error => {
+      assert.equal(error.receipt, receipt, label);
+      assert.equal(error.receipt.settlement.transaction, HASH("f"), label);
+      assert.equal(error.receipt.delivery, undefined, label);
+      return true;
+    });
+    assert.equal(calls, 1, label + " must not automatically re-pay or poll after refusal");
+  }
+});
