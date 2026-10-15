@@ -16,7 +16,7 @@ import {
   loadSuccessorX402Binding,
   requireActiveSuccessorRecord,
 } from "../src/successor-deployment.mjs";
-import { runJavascriptNodeOperation } from "../../../../../../computer-code-engineering-services-section/services/javascript-engineering-services-section/services/javascript-node-services-section/src/operation.mjs";
+import { runJavascriptNodeOperation } from "@red-cup-engineering/javascript-node-operation-engineering-services-section/operation";
 
 function required(name) {
   const value = process.env[name];
