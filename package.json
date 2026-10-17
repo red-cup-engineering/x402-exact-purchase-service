@@ -6,6 +6,7 @@
   "description": "Buys native x402 HTTP resources with an enterprise-owned signer and retains payment and delivery evidence; also supports the private exchange delivery contract.",
   "exports": {
     ".": "./src/purchase.mjs",
+    "./http-quote": "./src/http-quote.mjs",
     "./a2a-executor": "./src/a2a-executor.mjs",
     "./successor-activation": "./src/successor-activation.mjs",
     "./successor-deployment": "./src/successor-deployment.mjs"
@@ -16,7 +17,7 @@
     "serve-x402-exact-purchase-seller": "./scripts/x402-server.mjs"
   },
   "scripts": {
-    "check": "node --check src/successor-deployment.mjs && node --check src/successor-activation.mjs && node --check src/purchase.mjs && node --check src/a2a-executor.mjs && node --check scripts/purchase.mjs && node --check scripts/execute-a2a-message.mjs && node --check scripts/activitypub-server.mjs && node --check scripts/x402-server.mjs && node --check scripts/project-successor-activation-records.mjs",
+    "check": "node --check src/successor-deployment.mjs && node --check src/successor-activation.mjs && node --check src/http-quote.mjs && node --check src/purchase.mjs && node --check src/a2a-executor.mjs && node --check scripts/purchase.mjs && node --check scripts/execute-a2a-message.mjs && node --check scripts/activitypub-server.mjs && node --check scripts/x402-server.mjs && node --check scripts/project-successor-activation-records.mjs",
     "test": "node --test test/*.test.mjs",
     "verify": "npm run check && npm test"
   },
