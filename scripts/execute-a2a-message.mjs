@@ -21,7 +21,12 @@ try {
   }
   const input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
   process.stdout.write(`${JSON.stringify(await executeA2aMessage(input, {
-    admitPurchase: owner.admitPurchase, openPayer: owner.openPayer,
+    admitPurchase: owner.admitPurchase,
+    // Quote-only modules do not need keys; paid requests MUST NOT fall back to
+    // environment-based private-wallet opening when that export is missing.
+    openPayer: owner.openPayer ?? (() => {
+      throw new TypeError("paid x402 A2A request requires owner.openPayer");
+    }),
     quoteFetch: owner.quoteFetch,
     beforePayment: owner.beforePayment, onSettlement: owner.onSettlement, onDelivery: owner.onDelivery,
   }))}\n`);
