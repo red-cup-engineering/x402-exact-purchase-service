@@ -1,3 +1,4 @@
+import { challengeNamesResource, selectExactPaymentRequirement } from "./http-quote.mjs";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
@@ -284,24 +285,17 @@ export async function purchaseHttpResource({
   // advertise the canonical path without caller-supplied query parameters,
   // while the paid replay retains those exact input parameters. Never admit
   // a different host, path, scheme, or a *rewritten* nonempty query.
-  const quotedResourceUrl = required.resource?.url;
-  const canonicalEndpointUrl = `${resource.origin}${resource.pathname}`;
-  if (quotedResourceUrl !== resource.href && quotedResourceUrl !== canonicalEndpointUrl) {
+  if (!challengeNamesResource(required, resource.href)) {
     throw new X402ResourceResponseError("x402 v2 challenge names a different resource URL", {
       boundary: "unpaid resource challenge",
       status: 402,
       contentType: unpaid.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? null,
     });
   }
-  const eligible = (required.accepts ?? []).filter(candidate =>
-    candidate.scheme === "exact" && candidate.network === selectedNetwork
-    && candidate.asset?.toLowerCase() === selectedAsset
-    && ADDRESS.test(candidate.payTo?.toLowerCase() ?? "")
-    && (admittedPayTo === undefined || candidate.payTo.toLowerCase() === admittedPayTo)
-    && POSITIVE_INTEGER.test(candidate.amount ?? "")
-    && BigInt(candidate.amount) <= BigInt(ceiling));
-  if (eligible.length !== 1) throw new Error("resource did not offer exactly one admitted exact-EVM payment requirement");
-  const requirement = structuredClone(eligible[0]);
+  const requirement = selectExactPaymentRequirement(required, {
+    network: selectedNetwork, asset: selectedAsset, maximumAmount: ceiling,
+    expectedPayTo: admittedPayTo,
+  });
   const payload = await protocol.createPaymentPayload({ ...required, accepts: [requirement] });
   const request = Object.freeze({
     url: resource.href, method,
