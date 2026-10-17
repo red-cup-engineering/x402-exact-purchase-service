@@ -34,10 +34,7 @@ export function challengeNamesResource(required, url) {
  * and (when independently known) recipient. Never choose the cheapest among
  * ambiguous alternatives, and never let a server increase the buyer's budget.
  */
-export function selectExactPaymentRequirement(required, {
-  network, asset, maximumAmount, expectedPayTo,
-} = {}) {
-  if (required?.x402Version !== 2) throw new TypeError("one official x402 v2 challenge is required");
+function admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo } = {}) {
   if (!NETWORK.test(network ?? "")) throw new TypeError("network must be one explicit EIP-155 CAIP-2 identifier");
   if (!AMOUNT.test(maximumAmount ?? "")) throw new TypeError("maximumAmount must be a positive integer atomic amount");
   const token = typeof asset === "string" ? asset.toLowerCase() : "";
@@ -46,6 +43,14 @@ export function selectExactPaymentRequirement(required, {
   if (expectedPayTo !== undefined && !ADDRESS.test(payee ?? "")) {
     throw new TypeError("expectedPayTo must be an independently authorized EVM address");
   }
+  return Object.freeze({ network, token, maximumAmount, payee });
+}
+
+export function selectExactPaymentRequirement(required, {
+  network, asset, maximumAmount, expectedPayTo,
+} = {}) {
+  if (required?.x402Version !== 2) throw new TypeError("one official x402 v2 challenge is required");
+  const { token, payee } = admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo });
   const accepted = Array.isArray(required.accepts) ? required.accepts : [];
   const eligible = accepted.filter(candidate =>
     candidate?.scheme === "exact"
@@ -75,12 +80,7 @@ export async function readHttpPurchaseQuote({
   }
   if (typeof fetchImpl !== "function") throw new TypeError("quote requires an owner-controlled egress-safe fetchImpl");
   // Validate owner constraints BEFORE the first network request.
-  selectExactPaymentRequirement({
-    x402Version: 2, accepts: [{
-      scheme: "exact", network, asset, payTo: expectedPayTo ?? "0x0000000000000000000000000000000000000000",
-      amount: maximumAmount,
-    }],
-  }, { network, asset, maximumAmount, expectedPayTo });
+  admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo });
   const requestHeaders = Object.fromEntries(new Headers(headers));
   if (["payment-signature", "x-payment", "host"].some(name => name in requestHeaders)) {
     throw new TypeError("quote cannot carry an ambient payment signature or Host override");
