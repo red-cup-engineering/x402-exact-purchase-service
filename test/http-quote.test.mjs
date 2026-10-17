@@ -56,7 +56,7 @@ test("inspect official v2 POST quote without signer, settlement or paid replay",
 });
 
 test("the same pure selection respects buyer network, asset, payee and atomic ceiling", () => {
-  const v2 = { x402Version: 2, accepts: [terms] };
+  const v2 = { x402Version: 2, resource: { url }, accepts: [terms] };
   assert.deepEqual(selectExactPaymentRequirement(v2, owner), terms);
   for (const amended of [
     { amount: "8" },
@@ -65,16 +65,22 @@ test("the same pure selection respects buyer network, asset, payee and atomic ce
     { network: "eip155:1" },
   ]) {
     assert.throws(() => selectExactPaymentRequirement({
-      x402Version: 2, accepts: [{ ...terms, ...amended }],
+      x402Version: 2, resource: { url }, accepts: [{ ...terms, ...amended }],
     }, owner), /exactly one admitted/u);
   }
   assert.throws(() => selectExactPaymentRequirement({
-    x402Version: 2, accepts: [terms, terms],
+    x402Version: 2, resource: { url }, accepts: [terms, terms],
   }, owner), /exactly one admitted/u);
-  assert.throws(() => selectExactPaymentRequirement({ x402Version: 1, accepts: [terms] }, owner), /v2/u);
+  assert.throws(() => selectExactPaymentRequirement({ x402Version: 1, resource: { url }, accepts: [terms] }, owner), /v2/u);
   assert.throws(() => selectExactPaymentRequirement(v2, {
     ...owner, maximumAmount: "0",
   }), /positive integer/u);
+  assert.throws(() => selectExactPaymentRequirement({
+    ...v2, accepts: [{ ...terms, maxTimeoutSeconds: -1 }],
+  }, owner), "invalid protocol timeout cannot be priced for purchase");
+  assert.throws(() => selectExactPaymentRequirement({
+    ...v2, accepts: [{ ...terms, maxTimeoutSeconds: undefined }],
+  }, owner), "missing protocol timeout cannot be priced for purchase");
 });
 
 test("inspect query-free canonical quote but refuse rewritten query, host or path", async () => {
