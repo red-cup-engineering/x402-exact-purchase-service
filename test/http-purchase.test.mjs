@@ -5,6 +5,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { verifyTypedData } from "viem";
 import { decodePaymentSignatureHeader, encodePaymentRequiredHeader, encodePaymentResponseHeader } from "@x402/core/http";
 import { purchaseHttpResource } from "../src/purchase.mjs";
+import { readHttpPurchaseQuote } from "../src/http-quote.mjs";
 
 // Public development key; no live network, facilitator or funds are used.
 const signer = privateKeyToAccount("0x" + "1".padStart(64, "0"));
@@ -31,6 +32,53 @@ function delivered(body = new Uint8Array([0, 255, 42]), settlement = {}) {
   } });
 }
 const options = { url, payer, network, asset, maximumAmount: "7" };
+
+test("a buyer-admitted unsigned quote can lock the exact later payable request", async () => {
+  const acceptedQuote = await readHttpPurchaseQuote({
+    url, network, asset, maximumAmount: "7", expectedPayTo: payTo,
+    fetchImpl: async () => challenge(),
+  });
+  let calls = 0, before = 0;
+  const received = await purchaseHttpResource({
+    ...options, expectedPayTo: payTo, acceptedQuote,
+    beforePayment: () => { before++; },
+    fetchImpl: async () => ++calls === 1 ? challenge() : delivered(),
+  });
+  assert.equal(calls, 2);
+  assert.equal(before, 1);
+  assert.equal(received.settlementMatchesRequirements, true);
+  assert.deepEqual(received.requirement, acceptedQuote.requirement);
+  assert.deepEqual(received.request, acceptedQuote.request);
+});
+
+test("quote lock refuses request or challenge drift before any payment signature", async () => {
+  const acceptedQuote = await readHttpPurchaseQuote({
+    url, network, asset, maximumAmount: "7",
+    fetchImpl: async () => challenge(),
+  });
+  let egress = 0;
+  await assert.rejects(purchaseHttpResource({
+    ...options, acceptedQuote, method: "POST", body: { intent: "changed" },
+    fetchImpl: async () => { egress++; throw new Error("must not enter network"); },
+  }), error => error.code === "X402_QUOTE_DRIFT");
+  assert.equal(egress, 0, "request drift is rejected before the first probe");
+
+  for (const altered of [
+    { ...terms, amount: "6" },
+    { ...terms, maxTimeoutSeconds: 90 },
+    { ...terms, payTo: "0x3333333333333333333333333333333333333333" },
+    { ...terms, extra: { name: "Unexpected token", version: "2" } },
+  ]) {
+    let calls = 0, intents = 0;
+    await assert.rejects(purchaseHttpResource({
+      ...options, acceptedQuote,
+      beforePayment: () => { intents++; },
+      fetchImpl: async () => { calls++; return challenge([altered]); },
+    }), error => error.code === "X402_QUOTE_DRIFT");
+    assert.equal(calls, 1, "only the unsigned 402 probe can occur");
+    assert.equal(intents, 0, "the wallet cannot sign changed quoted terms");
+  }
+});
 
 test("ordinary GET: the official SDK signs, the owner records before sending, and exact bytes return", async () => {
   const order = [], calls = [];

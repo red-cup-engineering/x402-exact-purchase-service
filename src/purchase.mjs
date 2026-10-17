@@ -1,4 +1,4 @@
-import { challengeNamesResource, matchesExactPaymentSettlementReport, selectExactPaymentRequirement } from "./http-quote.mjs";
+import { admitOwnerTerms, assertQuotedPurchase, challengeNamesResource, matchesExactPaymentSettlementReport, prepareHttpResourceRequest, selectExactPaymentRequirement } from "./http-quote.mjs";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
@@ -9,20 +9,8 @@ import {
   SuccessorChainMigrationObstruction,
 } from "./successor-deployment.mjs";
 
-const CAIP2 = /^eip155:[1-9][0-9]*$/u;
-const POSITIVE_INTEGER = /^[1-9][0-9]*$/u;
 const ADDRESS = /^0x[0-9a-f]{40}$/u;
 const HASH = /^0x[0-9a-f]{64}$/u;
-
-function exactNetwork(value) {
-  if (!CAIP2.test(value ?? "")) throw new TypeError("network must be one explicit EIP-155 CAIP-2 identifier");
-  return value;
-}
-
-function exactAmount(value, label) {
-  if (!POSITIVE_INTEGER.test(value ?? "")) throw new TypeError(`${label} must be a positive integer atomic amount`);
-  return value;
-}
 
 function requiredSturdyRef(value) {
   if (!/^urn:ocapn:sturdyref:[A-Za-z0-9_-]{43}$/u.test(value ?? "")) {
@@ -211,29 +199,21 @@ export async function openEnterpriseAccountPayer({
  */
 export async function purchaseHttpResource({
   url, method = "GET", body, headers = {}, payer, network, asset, maximumAmount, expectedPayTo,
-  rpcUrl, fetchImpl = globalThis.fetch, httpClient, signal,
+  acceptedQuote, rpcUrl, fetchImpl = globalThis.fetch, httpClient, signal,
   maximumResponseBytes = 16 * 1024 * 1024, beforePayment, onSettlement, onDelivery,
 } = {}) {
-  const resource = new URL(url);
-  if (resource.protocol !== "https:" || resource.username || resource.password || resource.hash) {
-    throw new TypeError("resource must be an absolute HTTPS URL without credentials or fragment");
+  const { resource, requestHeaders, serialized, request } =
+    prepareHttpResourceRequest({ url, method, body, headers });
+  const { token: selectedAsset, payee: admittedPayTo } =
+    admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo });
+  const selectedNetwork = network;
+  const ceiling = maximumAmount;
+  // Refuse a mutated method/body/URL or weakened owner authority before egress.
+  if (acceptedQuote !== undefined) {
+    assertQuotedPurchase(acceptedQuote, {
+      request, maximumAmount: ceiling, expectedPayTo: admittedPayTo,
+    });
   }
-  if (!["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"].includes(method)
-      || (["GET", "HEAD"].includes(method) && body !== undefined)) {
-    throw new TypeError("one HTTP method and a compatible request body are required");
-  }
-  const selectedNetwork = exactNetwork(network);
-  const ceiling = exactAmount(maximumAmount, "maximumAmount");
-  const selectedAsset = asset?.toLowerCase();
-  if (!ADDRESS.test(selectedAsset ?? "")) throw new TypeError("asset must explicitly name the admitted EVM token");
-  // Recipient authority belongs to the buyer, not an untrusted 402 challenge.
-  // Existing owners may admit a URL alone; when a payee is explicitly admitted,
-  // reject recipient substitution before calling the signer or sending payment.
-  if (expectedPayTo !== undefined && (typeof expectedPayTo !== "string"
-      || !ADDRESS.test(expectedPayTo.toLowerCase()))) {
-    throw new TypeError("expectedPayTo must be an independently authorized EVM recipient address");
-  }
-  const admittedPayTo = expectedPayTo?.toLowerCase();
   const account = payer?.signer?.address?.toLowerCase();
   if (payer?.network !== selectedNetwork || !ADDRESS.test(account ?? "")
       || payer?.caip10?.toLowerCase() !== `${selectedNetwork}:${account}`) {
@@ -242,15 +222,6 @@ export async function purchaseHttpResource({
   if (!Number.isSafeInteger(maximumResponseBytes) || maximumResponseBytes < 1
       || maximumResponseBytes > 64 * 1024 * 1024) {
     throw new TypeError("maximumResponseBytes must be between 1 and 67108864");
-  }
-  const requestHeaders = Object.fromEntries(new Headers(headers));
-  if (["payment-signature", "x-payment", "host"].some(name => name in requestHeaders)) {
-    throw new TypeError("request headers cannot carry an ambient payment signature or host override");
-  }
-  const serialized = body === undefined ? undefined
-    : typeof body === "string" ? body : JSON.stringify(body);
-  if (body !== undefined && typeof body !== "string" && !requestHeaders["content-type"]) {
-    requestHeaders["content-type"] = "application/json";
   }
   const protocol = httpClient ?? (() => {
     const client = new x402Client();
@@ -296,11 +267,14 @@ export async function purchaseHttpResource({
     network: selectedNetwork, asset: selectedAsset, maximumAmount: ceiling,
     expectedPayTo: admittedPayTo,
   });
+  // A fresh 402 may still be within the budget while contradicting the
+  // earlier quoted amount, payee, EIP-712 domain or timeout: do not sign it.
+  if (acceptedQuote !== undefined) {
+    assertQuotedPurchase(acceptedQuote, {
+      request, requirement, maximumAmount: ceiling, expectedPayTo: admittedPayTo,
+    });
+  }
   const payload = await protocol.createPaymentPayload({ ...required, accepts: [requirement] });
-  const request = Object.freeze({
-    url: resource.href, method,
-    bodySha256: createHash("sha256").update(serialized ?? "").digest("hex"),
-  });
   await beforePayment?.({
     request: { ...request, headers: { ...requestHeaders }, ...(serialized === undefined ? {} : { body: serialized }) },
     requirement: structuredClone(requirement), paymentPayload: structuredClone(payload),

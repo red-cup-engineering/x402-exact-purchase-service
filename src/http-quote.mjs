@@ -4,6 +4,7 @@
  * boundary, downstream of the Mark/Sign* mathematics; no wallet or ledger.
  */
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { decodePaymentRequiredHeader } from "@x402/core/http";
 import { validatePaymentRequired } from "@x402/core/schemas";
 
@@ -23,6 +24,53 @@ function resourceUrl(value) {
   return url;
 }
 
+
+/**
+ * The one canonical, bounded request construction shared by quote inspection
+ * and executed purchases. Network access and signer authority are NOT here.
+ */
+export function prepareHttpResourceRequest({ url, method = "GET", body, headers = {} } = {}) {
+  const resource = resourceUrl(url);
+  if (!METHODS.has(method) || (["GET", "HEAD"].includes(method) && body !== undefined)) {
+    throw new TypeError("one HTTP method and a compatible request body are required");
+  }
+  const requestHeaders = Object.fromEntries(new Headers(headers));
+  if (["payment-signature", "x-payment", "host"].some(name => name in requestHeaders)) {
+    throw new TypeError("request headers cannot carry an ambient payment signature or Host override");
+  }
+  const serialized = body === undefined ? undefined
+    : typeof body === "string" ? body : JSON.stringify(body);
+  if (body !== undefined && typeof body !== "string" && !requestHeaders["content-type"]) {
+    requestHeaders["content-type"] = "application/json";
+  }
+  const request = Object.freeze({
+    url: resource.href, method,
+    bodySha256: createHash("sha256").update(serialized ?? "").digest("hex"),
+  });
+  return { resource, requestHeaders, serialized, request };
+}
+
+/**
+ * An observed unsigned quote is a constraint selected by the enterprise owner,
+ * never spending authority. A later 402 must reproduce the exact terms before
+ * a signing capability is exercised. This is not a signed merchant commitment.
+ */
+export function assertQuotedPurchase(quote, {
+  request, requirement, maximumAmount, expectedPayTo,
+} = {}) {
+  const matches = quote?.type === "X402HttpQuote"
+    && isDeepStrictEqual(quote.request, request)
+    && quote.maximumAmount === maximumAmount
+    && quote.expectedPayTo === expectedPayTo
+    && (requirement === undefined || isDeepStrictEqual(quote.requirement, requirement));
+  if (!matches) {
+    const error = new Error("observed x402 quote differs from the owner-admitted purchase");
+    error.code = "X402_QUOTE_DRIFT";
+    throw error;
+  }
+  return true;
+}
+
 /** A URI match, not a claim that the priced body has been delivered. */
 export function challengeNamesResource(required, url) {
   const resource = resourceUrl(url);
@@ -35,7 +83,7 @@ export function challengeNamesResource(required, url) {
  * and (when independently known) recipient. Never choose the cheapest among
  * ambiguous alternatives, and never let a server increase the buyer's budget.
  */
-function admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo } = {}) {
+export function admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo } = {}) {
   if (!NETWORK.test(network ?? "")) throw new TypeError("network must be one explicit EIP-155 CAIP-2 identifier");
   if (!AMOUNT.test(maximumAmount ?? "")) throw new TypeError("maximumAmount must be a positive integer atomic amount");
   const token = typeof asset === "string" ? asset.toLowerCase() : "";
@@ -109,21 +157,11 @@ export async function readHttpPurchaseQuote({
   url, method = "GET", body, headers = {}, network, asset, maximumAmount,
   expectedPayTo, fetchImpl, httpClient, signal,
 } = {}) {
-  const resource = resourceUrl(url);
-  if (!METHODS.has(method) || (["GET", "HEAD"].includes(method) && body !== undefined)) {
-    throw new TypeError("quote requires an explicit HTTP method and compatible body");
-  }
+  const { resource, requestHeaders, serialized, request } =
+    prepareHttpResourceRequest({ url, method, body, headers });
   if (typeof fetchImpl !== "function") throw new TypeError("quote requires an owner-controlled egress-safe fetchImpl");
   // Validate owner constraints BEFORE the first network request.
   admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo });
-  const requestHeaders = Object.fromEntries(new Headers(headers));
-  if (["payment-signature", "x-payment", "host"].some(name => name in requestHeaders)) {
-    throw new TypeError("quote cannot carry an ambient payment signature or Host override");
-  }
-  const serialized = body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body);
-  if (body !== undefined && typeof body !== "string" && !requestHeaders["content-type"]) {
-    requestHeaders["content-type"] = "application/json";
-  }
   const response = await fetchImpl(resource.href, {
     method, headers: requestHeaders, body: serialized, redirect: "error",
     signal: signal ?? AbortSignal.timeout(30_000),
@@ -157,10 +195,7 @@ export async function readHttpPurchaseQuote({
   });
   return Object.freeze({
     type: "X402HttpQuote",
-    request: Object.freeze({
-      url: resource.href, method,
-      bodySha256: createHash("sha256").update(serialized ?? "").digest("hex"),
-    }),
+    request,
     requirement: Object.freeze(requirement),
     maximumAmount,
     ...(expectedPayTo === undefined ? {} : { expectedPayTo: expectedPayTo.toLowerCase() }),
