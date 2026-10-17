@@ -69,6 +69,37 @@ export function selectExactPaymentRequirement(required, {
 }
 
 /**
+ * Pure comparison of a facilitator's claimed settlement to owner-admitted
+ * exact-EVM terms. A report can OMIT some fields, but can never contradict the
+ * selected network, token, amount, recipient or independently known payer.
+ * This comparison is NOT an independent on-chain receipt or delivered work.
+ * Reuse it in one-shot HTTP buying and in owners' durable recovery paths.
+ */
+export function matchesExactPaymentSettlementReport(report, {
+  network, asset, amount, payTo, payer,
+} = {}) {
+  const token = typeof asset === "string" ? asset.toLowerCase() : "";
+  const recipient = typeof payTo === "string" ? payTo.toLowerCase() : "";
+  const purchaser = typeof payer === "string" ? payer.toLowerCase() : undefined;
+  if (!NETWORK.test(network ?? "") || !ADDRESS.test(token) || !AMOUNT.test(amount ?? "")
+      || !ADDRESS.test(recipient) || (payer !== undefined && !ADDRESS.test(purchaser))) {
+    return false;
+  }
+  const optionalAddressMatches = (observed, expected) => observed === undefined ||
+    (typeof observed === "string" && ADDRESS.test(observed.toLowerCase())
+      && (expected === undefined || observed.toLowerCase() === expected));
+  return report?.success === true
+    && report.network === network
+    && typeof report.transaction === "string"
+    && /^0x[0-9a-f]{64}$/u.test(report.transaction.toLowerCase())
+    && (report.amount === undefined || report.amount === amount)
+    && optionalAddressMatches(report.asset, token)
+    && optionalAddressMatches(report.payee, recipient)
+    && optionalAddressMatches(report.payTo, recipient)
+    && optionalAddressMatches(report.payer, purchaser);
+}
+
+/**
  * Inspect a specific method/body's real 402 without opening wallet custody.
  * Caller MUST provide its own egress-controlled fetch capability; no implicit
  * DNS, redirect following, signing, settlement, or purchased response reading.
