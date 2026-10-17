@@ -3,7 +3,7 @@ import test from "node:test";
 import { createHash } from "node:crypto";
 import { encodePaymentRequiredHeader } from "@x402/core/http";
 import {
-  challengeNamesResource, readHttpPurchaseQuote, selectExactPaymentRequirement,
+  challengeNamesResource, matchesExactPaymentSettlementReport, readHttpPurchaseQuote, selectExactPaymentRequirement,
 } from "../src/http-quote.mjs";
 
 const url = "https://merchant.example/report?for=buyer";
@@ -134,4 +134,32 @@ test("owner admission precedes egress and payment signatures are never imported"
   }), /HTTPS/u);
   await assert.rejects(readHttpPurchaseQuote({ url, ...owner }), /fetchImpl/u);
   assert.equal(networkCalls, 0);
+});
+
+test("one source-owned settlement report matcher retains positive, adverse and optional-field cases", () => {
+  const valid = { success: true, network, transaction: "0x" + "a".repeat(64) };
+  const ownerTerms = { network, asset, amount: "7", payTo, payer: "0x" + "4".repeat(40) };
+  assert.equal(matchesExactPaymentSettlementReport(valid, ownerTerms), true,
+    "the protocol permits omitted optional facilitator details");
+  assert.equal(matchesExactPaymentSettlementReport({
+    ...valid, payee: payTo.toUpperCase().replace("0X", "0x"), amount: "7",
+    asset: asset.toUpperCase().replace("0X", "0x"), payer: ownerTerms.payer,
+  }, ownerTerms), true);
+  for (const changed of [
+    { success: false },
+    { network: "eip155:1" },
+    { transaction: "not-a-hash" },
+    { payee: "0x" + "5".repeat(40) },
+    { payTo: "0x" + "5".repeat(40) },
+    { asset: "0x" + "5".repeat(40) },
+    { payer: "0x" + "5".repeat(40) },
+    { amount: "8" },
+    { payer: 1234 },
+    { payTo: null },
+  ]) {
+    assert.equal(matchesExactPaymentSettlementReport({ ...valid, ...changed }, ownerTerms),
+      false, "contradictory/invalid reported terms cannot be accepted");
+  }
+  assert.equal(matchesExactPaymentSettlementReport(valid, { ...ownerTerms, payTo: "" }), false,
+    "missing owner recipient is not an acceptable receipt authority");
 });
