@@ -1,0 +1,135 @@
+/**
+ * A bounded signer-free x402 v2 quote, and the ONE pure acceptance selector
+ * shared by inspection and paid execution. This is the buyer-side commerce
+ * boundary, downstream of the Mark/Sign* mathematics; no wallet or ledger.
+ */
+import { createHash } from "node:crypto";
+import { x402Client, x402HTTPClient } from "@x402/core/client";
+
+const NETWORK = /^eip155:[1-9][0-9]*$/u;
+const ADDRESS = /^0x[0-9a-f]{40}$/u;
+const AMOUNT = /^[1-9][0-9]*$/u;
+const METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]);
+
+function resourceUrl(value) {
+  if (typeof value !== "string" || value.length > 4096) {
+    throw new TypeError("x402 quote needs one bounded absolute HTTPS URL");
+  }
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || url.hash) {
+    throw new TypeError("x402 quote needs an HTTPS URL without credentials or fragment");
+  }
+  return url;
+}
+
+/** A URI match, not a claim that the priced body has been delivered. */
+export function challengeNamesResource(required, url) {
+  const resource = resourceUrl(url);
+  return required?.resource?.url === resource.href
+    || required?.resource?.url === `${resource.origin}${resource.pathname}`;
+}
+
+/**
+ * Exactly one offer must match the owner's explicit network, asset, ceiling
+ * and (when independently known) recipient. Never choose the cheapest among
+ * ambiguous alternatives, and never let a server increase the buyer's budget.
+ */
+export function selectExactPaymentRequirement(required, {
+  network, asset, maximumAmount, expectedPayTo,
+} = {}) {
+  if (required?.x402Version !== 2) throw new TypeError("one official x402 v2 challenge is required");
+  if (!NETWORK.test(network ?? "")) throw new TypeError("network must be one explicit EIP-155 CAIP-2 identifier");
+  if (!AMOUNT.test(maximumAmount ?? "")) throw new TypeError("maximumAmount must be a positive integer atomic amount");
+  const token = typeof asset === "string" ? asset.toLowerCase() : "";
+  if (!ADDRESS.test(token)) throw new TypeError("asset must explicitly name an EVM token");
+  const payee = typeof expectedPayTo === "string" ? expectedPayTo.toLowerCase() : undefined;
+  if (expectedPayTo !== undefined && !ADDRESS.test(payee ?? "")) {
+    throw new TypeError("expectedPayTo must be an independently authorized EVM address");
+  }
+  const accepted = Array.isArray(required.accepts) ? required.accepts : [];
+  const eligible = accepted.filter(candidate =>
+    candidate?.scheme === "exact"
+    && candidate.network === network
+    && typeof candidate.asset === "string" && candidate.asset.toLowerCase() === token
+    && typeof candidate.payTo === "string" && ADDRESS.test(candidate.payTo.toLowerCase())
+    && (payee === undefined || candidate.payTo.toLowerCase() === payee)
+    && typeof candidate.amount === "string" && AMOUNT.test(candidate.amount)
+    && BigInt(candidate.amount) <= BigInt(maximumAmount));
+  if (eligible.length !== 1) throw new Error("resource did not offer exactly one admitted exact-EVM payment requirement");
+  return structuredClone(eligible[0]);
+}
+
+/**
+ * Inspect a specific method/body's real 402 without opening wallet custody.
+ * Caller MUST provide its own egress-controlled fetch capability; no implicit
+ * DNS, redirect following, signing, settlement, or purchased response reading.
+ * A POST probe is only suitable for an owner's known x402-first endpoint.
+ */
+export async function readHttpPurchaseQuote({
+  url, method = "GET", body, headers = {}, network, asset, maximumAmount,
+  expectedPayTo, fetchImpl, httpClient, signal,
+} = {}) {
+  const resource = resourceUrl(url);
+  if (!METHODS.has(method) || (["GET", "HEAD"].includes(method) && body !== undefined)) {
+    throw new TypeError("quote requires an explicit HTTP method and compatible body");
+  }
+  if (typeof fetchImpl !== "function") throw new TypeError("quote requires an owner-controlled egress-safe fetchImpl");
+  // Validate owner constraints BEFORE the first network request.
+  selectExactPaymentRequirement({
+    x402Version: 2, accepts: [{
+      scheme: "exact", network, asset, payTo: expectedPayTo ?? "0x0000000000000000000000000000000000000000",
+      amount: maximumAmount,
+    }],
+  }, { network, asset, maximumAmount, expectedPayTo });
+  const requestHeaders = Object.fromEntries(new Headers(headers));
+  if (["payment-signature", "x-payment", "host"].some(name => name in requestHeaders)) {
+    throw new TypeError("quote cannot carry an ambient payment signature or Host override");
+  }
+  const serialized = body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body);
+  if (body !== undefined && typeof body !== "string" && !requestHeaders["content-type"]) {
+    requestHeaders["content-type"] = "application/json";
+  }
+  const response = await fetchImpl(resource.href, {
+    method, headers: requestHeaders, body: serialized, redirect: "error",
+    signal: signal ?? AbortSignal.timeout(30_000),
+  });
+  if (response.status !== 402) {
+    await response.body?.cancel();
+    const error = new Error(`resource returned HTTP ${response.status}, not an x402 quote`);
+    error.code = "X402_QUOTE_NOT_REQUIRED";
+    error.status = response.status;
+    throw error;
+  }
+  const header = response.headers.get("payment-required");
+  if (header === null || header.length === 0 || header.length > 65_536) {
+    await response.body?.cancel();
+    throw new TypeError("x402 quote requires one bounded payment-required header");
+  }
+  const protocol = httpClient ?? new x402HTTPClient(new x402Client());
+  let required;
+  try {
+    required = protocol.getPaymentRequiredResponse(name => response.headers.get(name));
+  } finally {
+    await response.body?.cancel();
+  }
+  if (!challengeNamesResource(required, resource.href)) {
+    throw new TypeError("x402 v2 challenge names a different resource URL");
+  }
+  const requirement = selectExactPaymentRequirement(required, {
+    network, asset, maximumAmount, expectedPayTo,
+  });
+  return Object.freeze({
+    type: "X402HttpQuote",
+    request: Object.freeze({
+      url: resource.href, method,
+      bodySha256: createHash("sha256").update(serialized ?? "").digest("hex"),
+    }),
+    requirement: Object.freeze(requirement),
+    maximumAmount,
+    ...(expectedPayTo === undefined ? {} : { expectedPayTo: expectedPayTo.toLowerCase() }),
+    authority: Object.freeze({
+      paymentAttempted: false, signingAttempted: false,
+      settlementObserved: false, deliveryObserved: false,
+    }),
+  });
+}
