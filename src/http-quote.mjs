@@ -4,7 +4,7 @@
  * boundary, downstream of the Mark/Sign* mathematics; no wallet or ledger.
  */
 import { createHash } from "node:crypto";
-import { x402Client, x402HTTPClient } from "@x402/core/client";
+import { decodePaymentRequiredHeader } from "@x402/core/http";
 import { validatePaymentRequired } from "@x402/core/schemas";
 
 const NETWORK = /^eip155:[1-9][0-9]*$/u;
@@ -109,10 +109,12 @@ export async function readHttpPurchaseQuote({
     await response.body?.cancel();
     throw new TypeError("x402 quote requires one bounded payment-required header");
   }
-  const protocol = httpClient ?? new x402HTTPClient(new x402Client());
   let required;
   try {
-    required = protocol.getPaymentRequiredResponse(name => response.headers.get(name));
+    // The official wire decoder needs no instantiated signer or scheme client.
+    required = httpClient === undefined
+      ? decodePaymentRequiredHeader(header)
+      : httpClient.getPaymentRequiredResponse(name => response.headers.get(name));
   } finally {
     await response.body?.cancel();
   }
