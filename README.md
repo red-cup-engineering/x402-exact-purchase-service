@@ -4,6 +4,30 @@
 
 `purchaseHttpResource` buys an HTTPS representation using the official x402 SDK. The owner supplies the signer, CAIP-10 account, network, token and maximum amount. When recipient identity is independently established, the owner also supplies `expectedPayTo`; an unsigned 402 challenge naming a different recipient is then refused before signing. Optional recipient, asset or payer fields in a facilitator report cannot contradict those admitted terms; a report is still not independent chain settlement proof. `beforePayment` receives the exact request and signed payment before transmission; `onSettlement` receives the facilitator’s report before delivery is read. Retain both in the purchasing enterprise’s own books. A settlement report, received bytes and requester acceptance are distinct observations.
 
+## Budgeted x402 quotes, before wallet custody
+
+The Engineering buyer now exports `@red-cup-engineering/x402-exact-purchase-service/http-quote`:
+
+```js
+import { readHttpPurchaseQuote } from "@red-cup-engineering/x402-exact-purchase-service/http-quote";
+
+const quote = await readHttpPurchaseQuote({
+  url: "https://merchant.example/compute",
+  method: "POST",
+  body: { size: 3 },
+  network: "eip155:8453",
+  asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+  maximumAmount: "10000", // atomic units, not a floating-point dollar amount
+  expectedPayTo: "0x2222222222222222222222222222222222222222",
+  fetchImpl: enterpriseEgressSafeFetch, // supplied by the operator
+});
+// Inspect quote.requirement and quote.request; no payer or signer is opened.
+```
+
+`readHttpPurchaseQuote` sends exactly **one unsigned HTTP probe** and admits only the official x402 v2 payment requirement for the exact resource, selected network, token, bounded price and independently authorized recipient. The caller supplies an egress-controlled `fetchImpl`; it does not use ambient network authority or follow redirects. POST and other state-changing method probes are for already-known **payment-first** sellers only; an untrusted non-x402 origin might otherwise perform a side effect before returning 402. This is not an automatic purchase. The readout explicitly reports that no signing, payment, settlement, or delivery has occurred.
+
+The pure `selectExactPaymentRequirement` is shared with `purchaseHttpResource`, so inspections and executed purchases **cannot silently diverge** on which offers are eligible. A matching unsigned offer is not a commitment from the seller, a proof of current market price, or an independent payment/chain receipt. Operators must re-admit the observed quote during the actual purchase. For broader public, unsigned **GET/HEAD** discovery and Bazaar metadata inspection, the separate `@561-group/x402-boundary-reference/observe` already exists; this API specializes the Engineering buyer to a particular enterprise budget and exact method/body rather than recreating that public catalog product.
+
 For an A2A purchase proposal, run:
 
 ```sh
