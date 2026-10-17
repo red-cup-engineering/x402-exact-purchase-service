@@ -1,4 +1,4 @@
-import { challengeNamesResource, selectExactPaymentRequirement } from "./http-quote.mjs";
+import { challengeNamesResource, matchesExactPaymentSettlementReport, selectExactPaymentRequirement } from "./http-quote.mjs";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
@@ -330,17 +330,15 @@ export async function purchaseHttpResource({
     throw error;
   }
   const settlement = payment.settleResponse;
-  const settlementMatchesRequirements = settlement?.success === true
-    && settlement.network === selectedNetwork
-    && HASH.test(settlement.transaction?.toLowerCase() ?? "")
-    && (settlement.payer === undefined || (typeof settlement.payer === "string" && settlement.payer.toLowerCase() === account))
-    && (settlement.amount === undefined || settlement.amount === requirement.amount)
-    // These fields are optional in the HTTP facilitator report, but if present
-    // they must not contradict the signed payment requirement. This is still
-    // reported settlement, not independent on-chain confirmation.
-    && (settlement.payee === undefined || (typeof settlement.payee === "string" && settlement.payee.toLowerCase() === requirement.payTo.toLowerCase()))
-    && (settlement.payTo === undefined || (typeof settlement.payTo === "string" && settlement.payTo.toLowerCase() === requirement.payTo.toLowerCase()))
-    && (settlement.asset === undefined || (typeof settlement.asset === "string" && settlement.asset.toLowerCase() === selectedAsset));
+  // The same pure rule is consumed by durable recovery and one-shot buying.
+  // A facilitator's report is still not independent chain confirmation.
+  const settlementMatchesRequirements = matchesExactPaymentSettlementReport(settlement, {
+    network: selectedNetwork,
+    asset: selectedAsset,
+    amount: requirement.amount,
+    payTo: requirement.payTo,
+    payer: account,
+  });
   const receipt = {
     type: "X402HttpPurchaseReceipt", customer: payer.caip10, request, requirement,
     ...(settlement === undefined ? {} : { settlement }),
