@@ -5,6 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
+import { validatePaymentRequired } from "@x402/core/schemas";
 
 const NETWORK = /^eip155:[1-9][0-9]*$/u;
 const ADDRESS = /^0x[0-9a-f]{40}$/u;
@@ -50,8 +51,11 @@ export function selectExactPaymentRequirement(required, {
   network, asset, maximumAmount, expectedPayTo,
 } = {}) {
   if (required?.x402Version !== 2) throw new TypeError("one official x402 v2 challenge is required");
+  // Use the SDK's complete wire schema: a plausible price without the
+  // protocol's timeout/resource fields is not an admissible quote.
+  const parsed = validatePaymentRequired(required);
   const { token, payee } = admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo });
-  const accepted = Array.isArray(required.accepts) ? required.accepts : [];
+  const accepted = parsed.accepts;
   const eligible = accepted.filter(candidate =>
     candidate?.scheme === "exact"
     && candidate.network === network
