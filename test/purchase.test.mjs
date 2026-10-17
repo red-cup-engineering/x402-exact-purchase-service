@@ -68,12 +68,15 @@ test("purchases exactly one admitted integer-priced requirement", async () => {
   const httpClient = {
     getPaymentRequiredResponse: () => ({
       x402Version: 2,
+      resource: { url: "https://provider.example/invoke", mimeType: "application/json" },
       accepts: [{
         scheme: "exact",
         network: "eip155:5",
         amount: "7",
         asset: "0x4444444444444444444444444444444444444444",
         payTo: "0x2222222222222222222222222222222222222222",
+        maxTimeoutSeconds: 60,
+        extra: { name: "USD Coin", version: "2" },
       }],
     }),
     createPaymentPayload: async () => ({ paid: true }),
@@ -102,7 +105,14 @@ test("refuses price drift above the admitted exact amount", async () => {
   const httpClient = {
     getPaymentRequiredResponse: () => ({
       x402Version: 2,
-      accepts: [{ scheme: "exact", network: "eip155:5", amount: "8" }],
+      resource: { url: "https://provider.example/invoke", mimeType: "application/json" },
+      accepts: [{
+        scheme: "exact", network: "eip155:5", amount: "8",
+        asset: "0x4444444444444444444444444444444444444444",
+        payTo: "0x2222222222222222222222222222222222222222",
+        maxTimeoutSeconds: 60,
+        extra: { name: "USD Coin", version: "2" },
+      }],
     }),
   };
   await assert.rejects(purchaseExactResource({
