@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readHttpPurchaseQuote } from "./http-quote.mjs";
 import { Message, Role } from "@a2a-js/sdk";
 import { extractRmnPart, rmnPart } from "@red-cup-engineering/a2a-rmn-part-service";
 import { decodeSemantic, semanticBytes, semanticId } from "@red-cup-engineering/relation-model-notation-cbor-codec";
@@ -25,7 +26,7 @@ export async function executeOperation(source, options = {}) {
   if (!exact(request) || request.provider !== ACTOR) {
     throw new Error("exact provider-addressed canonical SEN operation is required");
   }
-  if (!["X402ExactPurchaseRequest", "X402HttpPurchaseRequest"].includes(request.type) || !request.purchase || typeof request.purchase !== "object") {
+  if (!["X402ExactPurchaseRequest", "X402HttpPurchaseRequest", "X402HttpQuoteRequest"].includes(request.type) || !request.purchase || typeof request.purchase !== "object") {
     throw new Error("x402 exact purchase request requires one purchase");
   }
   if (typeof options.admitPurchase !== "function") {
@@ -36,6 +37,19 @@ export async function executeOperation(source, options = {}) {
       || typeof admitted.url !== "string" || typeof admitted.network !== "string"
       || typeof admitted.asset !== "string" || typeof admitted.maximumAmount !== "string") {
     throw new TypeError("owner admission must supply the exact resource, network, token and spending ceiling");
+  }
+  // An admitted quote remains an unsigned pre-payment resource observation.
+  // The actor owner supplies bounded egress; no payer or private key is opened.
+  if (request.type === "X402HttpQuoteRequest") {
+    if (typeof options.quoteFetch !== "function") {
+      throw new Error("an x402 quote requires the actor owner's egress-safe quoteFetch");
+    }
+    const quote = options.readHttpPurchaseQuote ?? readHttpPurchaseQuote;
+    const result = await quote({ ...admitted, fetchImpl: options.quoteFetch });
+    return record({
+      type: "X402HttpQuoteResult", provider: ACTOR,
+      request: request.id, result,
+    });
   }
   if (request.type === "X402HttpPurchaseRequest" && !options.payer && typeof options.openPayer !== "function") {
     throw new Error("ordinary HTTP purchasing requires the actor owner’s payer or wallet opener");
