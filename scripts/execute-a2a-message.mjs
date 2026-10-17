@@ -7,7 +7,11 @@ try {
   const path = at < 0 ? process.env.X402_OWNER_MODULE : process.argv[at + 1];
   if (typeof path !== "string" || !path) throw new Error("--owner-module or X402_OWNER_MODULE must name the actor owner's purchase admission and wallet module");
   const owner = await import(pathToFileURL(resolve(path)).href);
-  if (typeof owner.admitPurchase !== "function" || typeof owner.openPayer !== "function") throw new TypeError("owner module must export admitPurchase(proposal) and openPayer(admittedPurchase)");
+  if (typeof owner.admitPurchase !== "function"
+      || (owner.openPayer !== undefined && typeof owner.openPayer !== "function")
+      || (owner.quoteFetch !== undefined && typeof owner.quoteFetch !== "function")) {
+    throw new TypeError("owner module must export admitPurchase and valid optional openPayer/quoteFetch functions");
+  }
   const chunks = [];
   let bytes = 0;
   for await (const chunk of process.stdin) {
@@ -18,6 +22,7 @@ try {
   const input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
   process.stdout.write(`${JSON.stringify(await executeA2aMessage(input, {
     admitPurchase: owner.admitPurchase, openPayer: owner.openPayer,
+    quoteFetch: owner.quoteFetch,
     beforePayment: owner.beforePayment, onSettlement: owner.onSettlement, onDelivery: owner.onDelivery,
   }))}\n`);
 } catch (error) {
