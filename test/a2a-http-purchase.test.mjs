@@ -16,7 +16,8 @@ test("a provider-addressed HTTP request crosses the native actor boundary with o
     admitPurchase: proposal => {
       assert.equal(proposal.purchase.maximumAmount, "70000000");
       return { url: proposal.purchase.url, network: "eip155:8453",
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "7" };
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "7",
+        expectedPayTo: "0x2222222222222222222222222222222222222222" };
     },
     purchaseHttpResource: async options => { received = options; return { type: "X402HttpPurchaseReceipt", customer: payer.caip10 }; },
     openEnterpriseAccountPayer: () => { throw new Error("private exchange must not gate ordinary HTTP"); },
@@ -97,7 +98,7 @@ export function purchaseFetch(resource, init) {
   return originalFetch(${JSON.stringify(`http://127.0.0.1:${server.address().port}/resource`)}, init);
 }
 const retain = (phase,value) => appendFileSync(${JSON.stringify(bookPath)},JSON.stringify({phase,value})+"\\n");
-export function admitPurchase(proposal) { retain("admission",proposal); return {url:${JSON.stringify(url)},network:${JSON.stringify(network)},asset:${JSON.stringify(asset)},maximumAmount:"7"}; }
+export function admitPurchase(proposal) { retain("admission",proposal); return {url:${JSON.stringify(url)},network:${JSON.stringify(network)},asset:${JSON.stringify(asset)},maximumAmount:"7",expectedPayTo:${JSON.stringify(terms.payTo)}}; }
 export function openPayer(admitted) { retain("wallet",admitted); return {signer,network:${JSON.stringify(network)},caip10:${JSON.stringify(network)}+":"+signer.address}; }
 export function beforePayment(intent) { retain("intent",intent); }
 export function onSettlement(observation) { retain("settlement",observation); }
