@@ -115,7 +115,9 @@ test("quote lock refuses request or challenge drift before any payment signature
       ...options, acceptedQuote,
       beforePayment: () => { intents++; },
       fetchImpl: async () => { calls++; return challenge([altered]); },
-    }), error => error.code === "X402_QUOTE_DRIFT");
+    }), error => altered.payTo === payTo
+      ? error.code === "X402_QUOTE_DRIFT"
+      : /exactly one admitted/u.test(error.message));
     assert.equal(calls, 1, "only the unsigned 402 probe can occur");
     assert.equal(intents, 0, "the wallet cannot sign changed quoted terms");
   }
