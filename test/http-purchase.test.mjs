@@ -36,11 +36,13 @@ const options = { url, payer, network, asset, maximumAmount: "7" };
 test("a buyer-admitted unsigned quote can lock the exact later payable request", async () => {
   const acceptedQuote = await readHttpPurchaseQuote({
     url, network, asset, maximumAmount: "7", expectedPayTo: payTo,
+    headers: { accept: "application/octet-stream", "x-customer": "one" },
     fetchImpl: async () => challenge(),
   });
   let calls = 0, before = 0;
   const received = await purchaseHttpResource({
     ...options, expectedPayTo: payTo, acceptedQuote,
+    headers: { "x-customer": "one", ACCEPT: "application/octet-stream" },
     beforePayment: () => { before++; },
     fetchImpl: async () => ++calls === 1 ? challenge() : delivered(),
   });
@@ -62,6 +64,18 @@ test("quote lock refuses request or challenge drift before any payment signature
     fetchImpl: async () => { egress++; throw new Error("must not enter network"); },
   }), error => error.code === "X402_QUOTE_DRIFT");
   assert.equal(egress, 0, "request drift is rejected before the first probe");
+
+  const headerQuote = await readHttpPurchaseQuote({
+    url, network, asset, maximumAmount: "7",
+    headers: { accept: "application/json" },
+    fetchImpl: async () => challenge(),
+  });
+  await assert.rejects(purchaseHttpResource({
+    ...options, acceptedQuote: headerQuote,
+    headers: { accept: "application/octet-stream" },
+    fetchImpl: async () => { egress++; throw new Error("must not enter network"); },
+  }), error => error.code === "X402_QUOTE_DRIFT");
+  assert.equal(egress, 0, "changed representation headers cannot enter the network");
 
   for (const altered of [
     { ...terms, amount: "6" },

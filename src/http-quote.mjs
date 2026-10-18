@@ -43,9 +43,15 @@ export function prepareHttpResourceRequest({ url, method = "GET", body, headers 
   if (body !== undefined && typeof body !== "string" && !requestHeaders["content-type"]) {
     requestHeaders["content-type"] = "application/json";
   }
+  // Hash the complete caller-supplied representation selector, without
+  // publishing potentially private header values in quote or payment receipts.
+  // Headers() canonicalizes casing; sorting makes insertion order irrelevant.
+  const canonicalHeaders = Object.entries(requestHeaders)
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
   const request = Object.freeze({
     url: resource.href, method,
     bodySha256: createHash("sha256").update(serialized ?? "").digest("hex"),
+    headersSha256: createHash("sha256").update(JSON.stringify(canonicalHeaders)).digest("hex"),
   });
   return { resource, requestHeaders, serialized, request };
 }
