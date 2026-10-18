@@ -10,7 +10,7 @@ import { isDeepStrictEqual } from "node:util";
 import { encodePaymentSignatureHeader } from "@x402/core/http";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import {
-  admitOwnerTerms, assertQuotedPurchase, challengeNamesResource,
+  requireOwnerPayee, assertQuotedPurchase, challengeNamesResource,
   prepareHttpResourceRequest, selectExactPaymentRequirement,
 } from "./http-quote.mjs";
 
@@ -47,9 +47,7 @@ export async function authorizeQuotedHttpPayment({
   network, asset, maximumAmount, expectedPayTo, rpcUrl, client,
 } = {}) {
   const { request } = prepareHttpResourceRequest({ url, method, body, headers });
-  const { payee } = admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo });
-  if (payee === undefined)
-    throw new TypeError("durable x402 authorization requires an independently authorized expectedPayTo");
+  const { payee } = requireOwnerPayee({ network, asset, maximumAmount, expectedPayTo });
   const account = payer?.signer?.address?.toLowerCase();
   if (!/^0x[0-9a-f]{40}$/u.test(account ?? "") ||
       payer?.network !== network ||
