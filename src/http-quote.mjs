@@ -101,13 +101,11 @@ export function admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo }
   return Object.freeze({ network, token, maximumAmount, payee });
 }
 
-export function selectExactPaymentRequirement(required, {
+// Distinguish SDK schema admission from buyer economic selection; a single
+// quote carries the fully parsed challenge AND its one owner-admitted choice.
+function selectFromAdmittedPaymentRequirement(parsed, {
   network, asset, maximumAmount, expectedPayTo,
 } = {}) {
-  if (required?.x402Version !== 2) throw new TypeError("one official x402 v2 challenge is required");
-  // Use the SDK's complete wire schema: a plausible price without the
-  // protocol's timeout/resource fields is not an admissible quote.
-  const parsed = validatePaymentRequired(required);
   const { token, payee } = admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo });
   const accepted = parsed.accepts;
   const eligible = accepted.filter(candidate =>
@@ -120,6 +118,14 @@ export function selectExactPaymentRequirement(required, {
     && BigInt(candidate.amount) <= BigInt(maximumAmount));
   if (eligible.length !== 1) throw new Error("resource did not offer exactly one admitted exact-EVM payment requirement");
   return structuredClone(eligible[0]);
+}
+
+/** The public selector performs official wire admission before economic
+ * matching, never independently trusting a caller-claimed parsed challenge. */
+export function selectExactPaymentRequirement(required, options = {}) {
+  if (required?.x402Version !== 2)
+    throw new TypeError("one official x402 v2 challenge is required");
+  return selectFromAdmittedPaymentRequirement(validatePaymentRequired(required), options);
 }
 
 /**
@@ -196,7 +202,11 @@ export async function readHttpPurchaseTerms({
   if (!challengeNamesResource(required, resource.href)) {
     throw new TypeError("x402 v2 challenge names a different resource URL");
   }
-  const requirement = selectExactPaymentRequirement(required, {
+  if (required?.x402Version !== 2)
+    throw new TypeError("one official x402 v2 challenge is required");
+  // Schema admission once, reused for both owner selection and safe signing.
+  const parsed = validatePaymentRequired(required);
+  const requirement = selectFromAdmittedPaymentRequirement(parsed, {
     network, asset, maximumAmount, expectedPayTo,
   });
   const quote = Object.freeze({
@@ -215,7 +225,7 @@ export async function readHttpPurchaseTerms({
   // observation; the independently admitted owner's quote constrains the
   // unique eligible network, token, payee and maximum amount. The paid HTTP
   // send and its recovery remain distinct effects.
-  return Object.freeze({ quote, paymentRequired: structuredClone(validatePaymentRequired(required)) });
+  return Object.freeze({ quote, paymentRequired: structuredClone(parsed) });
 }
 
 /** One signer-free quote for UIs, MCP actors and budget previews. The same
