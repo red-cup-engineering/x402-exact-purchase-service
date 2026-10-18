@@ -57,6 +57,21 @@ test("a canonical request is no spending authority and cannot open the owner's w
 });
 
 
+test("paid A2A actor refuses an unauthorised payee before loading the owner's signer", async () => {
+  const body = { type: "X402HttpPurchaseRequest", provider: ACTOR,
+    purchase: { url: "https://ordinary.example/data", network: "eip155:8453",
+      asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "7" } };
+  const request = { id: semanticId(body), ...body };
+  let walletsOpened = 0, fetches = 0;
+  await assert.rejects(executeOperation(request, {
+    admitPurchase: () => ({ ...body.purchase }),
+    purchaseFetch: async () => { fetches++; throw new Error("must not fetch"); },
+    openPayer: () => { walletsOpened++; throw new Error("must not open signer"); },
+  }), /independently authorized expectedPayTo/u);
+  assert.equal(walletsOpened, 0);
+  assert.equal(fetches, 0);
+});
+
 test("the installed actor command returns an independently verified wire result and retains the owner's observations", async () => {
   const { createServer } = await import("node:http");
   const { spawn } = await import("node:child_process");
