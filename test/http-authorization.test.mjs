@@ -52,6 +52,21 @@ test("one Engineering signer prepares a durable exact-EVM authorization without 
   assert.match(payload.payload.signature, /^0x[0-9a-f]+$/iu);
 });
 
+test("a different valid POST quotation signs only its original body and headers", async () => {
+  const method = "POST";
+  const body = { operation: "analyse", input: { count: 3 } };
+  const headers = { accept: "application/json", "x-purpose": "science" };
+  const observed = await terms({ method, body, headers });
+  const prepared = await authorizeQuotedHttpPayment({
+    url, method, body, headers, terms: observed, payer, ...owner,
+  });
+  assert.deepEqual(prepared.request, observed.quote.request);
+  const decoded = decodePaymentSignatureHeader(prepared.paymentSignature);
+  assert.deepEqual(decoded.accepted, requirements);
+  assert.equal(decoded.payload.authorization.to.toLowerCase(), payTo);
+  assert.equal(prepared.authority.paymentAttempted, false);
+});
+
 test("owner admission and quote lock refuse substitution before reaching signing client", async () => {
   const observed = await terms();
   let calls = 0;
