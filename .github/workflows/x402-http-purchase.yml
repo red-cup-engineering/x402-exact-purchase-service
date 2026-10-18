@@ -34,6 +34,12 @@ jobs:
         with:
           node-version: "22"
       - name: Install the exact declared producer and test dependency closure
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Export the native resolved lock for source receiving
+        uses: actions/upload-artifact@v4
+        with:
+          name: x402-resolved-lock
+          path: package-lock.json
+          retention-days: 1
       - name: Exercise the native signer-safe purchase and refusal suites
         run: npm run verify
