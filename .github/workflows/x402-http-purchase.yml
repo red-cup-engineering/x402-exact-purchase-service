@@ -1,0 +1,39 @@
+name: x402 native buyer
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "test/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".npmrc"
+      - ".github/workflows/x402-http-purchase.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "test/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".npmrc"
+      - ".github/workflows/x402-http-purchase.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-purchase:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install the exact declared producer and test dependency closure
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Exercise the native signer-safe purchase and refusal suites
+        run: npm run verify
