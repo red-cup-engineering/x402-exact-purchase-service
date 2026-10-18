@@ -3,7 +3,7 @@ import test from "node:test";
 import { createHash } from "node:crypto";
 import { encodePaymentRequiredHeader } from "@x402/core/http";
 import {
-  challengeNamesResource, matchesExactPaymentSettlementReport, readHttpPurchaseQuote, selectExactPaymentRequirement,
+  challengeNamesResource, matchesExactPaymentSettlementReport, readHttpPurchaseQuote, readHttpPurchaseTerms, selectExactPaymentRequirement,
 } from "../src/http-quote.mjs";
 
 const url = "https://merchant.example/report?for=buyer";
@@ -162,4 +162,46 @@ test("one source-owned settlement report matcher retains positive, adverse and o
   }
   assert.equal(matchesExactPaymentSettlementReport(valid, { ...ownerTerms, payTo: "" }), false,
     "missing owner recipient is not an acceptable receipt authority");
+});
+
+test("durable purchase receives the original validated server challenge and the SAME exact owner-selected quote", async () => {
+  let probes = 0;
+  const inputs = {url, ...owner, fetchImpl: async (_url, init) => {
+    probes++;
+    assert.equal(init.method, "GET");
+    assert.equal(init.redirect, "error");
+    assert.equal(new Headers(init.headers).has("payment-signature"), false);
+    return challenge();
+  }};
+  const receipt = await readHttpPurchaseTerms(inputs);
+  assert.equal(probes, 1);
+  assert.equal(receipt.quote.type, "X402HttpQuote");
+  assert.deepEqual(receipt.quote.requirement, terms);
+  assert.equal(receipt.paymentRequired.x402Version, 2);
+  assert.equal(receipt.paymentRequired.resource.url, url);
+  assert.deepEqual(receipt.paymentRequired.accepts, [terms]);
+  assert.equal(receipt.quote.authority.paymentAttempted, false);
+  assert.equal(receipt.quote.authority.signingAttempted, false);
+  assert.equal(receipt.paymentSignature, undefined);
+  // The independent signed-request owner can select exactly the admitted
+  // payment requirement while retaining resource extensions for the SDK.
+  const selected = {...receipt.paymentRequired, accepts: [receipt.quote.requirement]};
+  assert.deepEqual(selectExactPaymentRequirement(selected, owner), terms);
+  assert.notStrictEqual(receipt.paymentRequired.accepts[0], receipt.quote.requirement);
+});
+
+test("durable quote refuses substitute recipient, origin, method and over-ceiling value before signing", async () => {
+  const cases = [
+    {fetchImpl: async () => challenge({offered:[{...terms,payTo:"0x"+"6".repeat(40)}]})},
+    {fetchImpl: async () => challenge({offered:[{...terms,amount:"8"}]})},
+    {fetchImpl: async () => challenge({quotedUrl:"https://other.example/report?for=buyer"})},
+  ];
+  for (const opts of cases) {
+    await assert.rejects(readHttpPurchaseTerms({url,...owner,...opts}),
+      /exactly one admitted|different resource URL/u);
+  }
+  let calls = 0;
+  await assert.rejects(readHttpPurchaseTerms({url,...owner,expectedPayTo:"bad",
+    fetchImpl: async()=>{calls++;return challenge();}}),/expectedPayTo/u);
+  assert.equal(calls,0);
 });
