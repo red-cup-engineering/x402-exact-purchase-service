@@ -31,13 +31,33 @@ function delivered(body = new Uint8Array([0, 255, 42]), settlement = {}) {
     }),
   } });
 }
-const options = { url, payer, network, asset, maximumAmount: "7" };
+const options = { url, payer, network, asset, maximumAmount: "7", expectedPayTo: payTo };
 
 test("a payable resource cannot use ambient network authority", async () => {
   await assert.rejects(purchaseHttpResource({ ...options }),
     /owner-controlled egress-safe fetchImpl/u);
   await assert.rejects(purchaseHttpResource({ ...options, fetchImpl: null }),
     /owner-controlled egress-safe fetchImpl/u);
+});
+
+test("unsigned x402 quotes can discover an unknown recipient, but spending cannot", async () => {
+  let egress = 0;
+  const quote = await readHttpPurchaseQuote({
+    url, network, asset, maximumAmount: "7",
+    fetchImpl: async () => { egress++; return challenge(); },
+  });
+  assert.equal(egress, 1);
+  assert.equal(quote.requirement.payTo, payTo);
+  assert.equal(quote.expectedPayTo, undefined, "an unsigned 402 cannot assign owner payee authority");
+
+  let signerOpened = false;
+  await assert.rejects(purchaseHttpResource({
+    ...options, expectedPayTo: undefined,
+    fetchImpl: async () => { egress++; throw new Error("no paid egress"); },
+    beforePayment: () => { signerOpened = true; },
+  }), /independently authorized expectedPayTo/u);
+  assert.equal(egress, 1, "owner must admit the payee before any purchase probe");
+  assert.equal(signerOpened, false, "a seller-provided payee never makes the buyer sign");
 });
 
 test("a buyer-admitted unsigned quote can lock the exact later payable request", async () => {
@@ -62,7 +82,7 @@ test("a buyer-admitted unsigned quote can lock the exact later payable request",
 
 test("quote lock refuses request or challenge drift before any payment signature", async () => {
   const acceptedQuote = await readHttpPurchaseQuote({
-    url, network, asset, maximumAmount: "7",
+    url, network, asset, maximumAmount: "7", expectedPayTo: payTo,
     fetchImpl: async () => challenge(),
   });
   let egress = 0;
@@ -73,7 +93,7 @@ test("quote lock refuses request or challenge drift before any payment signature
   assert.equal(egress, 0, "request drift is rejected before the first probe");
 
   const headerQuote = await readHttpPurchaseQuote({
-    url, network, asset, maximumAmount: "7",
+    url, network, asset, maximumAmount: "7", expectedPayTo: payTo,
     headers: { accept: "application/json" },
     fetchImpl: async () => challenge(),
   });
@@ -95,7 +115,9 @@ test("quote lock refuses request or challenge drift before any payment signature
       ...options, acceptedQuote,
       beforePayment: () => { intents++; },
       fetchImpl: async () => { calls++; return challenge([altered]); },
-    }), error => error.code === "X402_QUOTE_DRIFT");
+    }), error => altered.payTo === payTo
+      ? error.code === "X402_QUOTE_DRIFT"
+      : /exactly one admitted/u.test(error.message));
     assert.equal(calls, 1, "only the unsigned 402 probe can occur");
     assert.equal(intents, 0, "the wallet cannot sign changed quoted terms");
   }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readHttpPurchaseQuote } from "./http-quote.mjs";
+import { readHttpPurchaseQuote, requireOwnerPayee } from "./http-quote.mjs";
 import { Message, Role } from "@a2a-js/sdk";
 import { extractRmnPart, rmnPart } from "@red-cup-engineering/a2a-rmn-part-service";
 import { decodeSemantic, semanticBytes, semanticId } from "@red-cup-engineering/relation-model-notation-cbor-codec";
@@ -57,6 +57,9 @@ export async function executeOperation(source, options = {}) {
   if (typeof options.purchaseFetch !== "function") {
     throw new Error("paid x402 purchase requires the actor owner's egress-safe purchaseFetch");
   }
+  // Strategy admission precedes signer capability. The owner, never an
+  // unsigned merchant challenge, decides who may receive payment.
+  requireOwnerPayee(admitted);
   const payer = options.payer ?? (options.openPayer
     ? await options.openPayer(structuredClone(admitted))
     : await (options.openEnterpriseAccountPayer ?? openEnterpriseAccountPayer)(

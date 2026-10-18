@@ -16,7 +16,8 @@ test("a provider-addressed HTTP request crosses the native actor boundary with o
     admitPurchase: proposal => {
       assert.equal(proposal.purchase.maximumAmount, "70000000");
       return { url: proposal.purchase.url, network: "eip155:8453",
-        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "7" };
+        asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "7",
+        expectedPayTo: "0x2222222222222222222222222222222222222222" };
     },
     purchaseHttpResource: async options => { received = options; return { type: "X402HttpPurchaseReceipt", customer: payer.caip10 }; },
     openEnterpriseAccountPayer: () => { throw new Error("private exchange must not gate ordinary HTTP"); },
@@ -55,6 +56,21 @@ test("a canonical request is no spending authority and cannot open the owner's w
   assert.equal(opened, 0); assert.equal(executed, 0);
 });
 
+
+test("paid A2A actor refuses an unauthorised payee before loading the owner's signer", async () => {
+  const body = { type: "X402HttpPurchaseRequest", provider: ACTOR,
+    purchase: { url: "https://ordinary.example/data", network: "eip155:8453",
+      asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "7" } };
+  const request = { id: semanticId(body), ...body };
+  let walletsOpened = 0, fetches = 0;
+  await assert.rejects(executeOperation(request, {
+    admitPurchase: () => ({ ...body.purchase }),
+    purchaseFetch: async () => { fetches++; throw new Error("must not fetch"); },
+    openPayer: () => { walletsOpened++; throw new Error("must not open signer"); },
+  }), /independently authorized expectedPayTo/u);
+  assert.equal(walletsOpened, 0);
+  assert.equal(fetches, 0);
+});
 
 test("the installed actor command returns an independently verified wire result and retains the owner's observations", async () => {
   const { createServer } = await import("node:http");
@@ -97,7 +113,7 @@ export function purchaseFetch(resource, init) {
   return originalFetch(${JSON.stringify(`http://127.0.0.1:${server.address().port}/resource`)}, init);
 }
 const retain = (phase,value) => appendFileSync(${JSON.stringify(bookPath)},JSON.stringify({phase,value})+"\\n");
-export function admitPurchase(proposal) { retain("admission",proposal); return {url:${JSON.stringify(url)},network:${JSON.stringify(network)},asset:${JSON.stringify(asset)},maximumAmount:"7"}; }
+export function admitPurchase(proposal) { retain("admission",proposal); return {url:${JSON.stringify(url)},network:${JSON.stringify(network)},asset:${JSON.stringify(asset)},maximumAmount:"7",expectedPayTo:${JSON.stringify(terms.payTo)}}; }
 export function openPayer(admitted) { retain("wallet",admitted); return {signer,network:${JSON.stringify(network)},caip10:${JSON.stringify(network)}+":"+signer.address}; }
 export function beforePayment(intent) { retain("intent",intent); }
 export function onSettlement(observation) { retain("settlement",observation); }

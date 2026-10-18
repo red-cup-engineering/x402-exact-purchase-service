@@ -101,6 +101,19 @@ export function admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo }
   return Object.freeze({ network, token, maximumAmount, payee });
 }
 
+/**
+ * Owner payee admission for real signature or spend, shared by one-shot and
+ * durable purchasing. Unsigned readHttpPurchaseTerms can still inspect an
+ * unknown payee; seller-authored 402 metadata never grants spend authority.
+ */
+export function requireOwnerPayee(options = {}) {
+  const admission = admitOwnerTerms(options);
+  if (admission.payee === undefined) {
+    throw new TypeError("paid x402 purchase requires independently authorized expectedPayTo");
+  }
+  return admission;
+}
+
 // Distinguish SDK schema admission from buyer economic selection; a single
 // quote carries the fully parsed challenge AND its one owner-admitted choice.
 function selectFromAdmittedPaymentRequirement(parsed, {
