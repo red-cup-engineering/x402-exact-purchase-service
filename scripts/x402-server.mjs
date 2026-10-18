@@ -28,11 +28,12 @@ async function jsonFile(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
-async function quote() {
-  const response = await fetch(required("PRICE_QUOTE_URL"), {
+async function quote(fetchImpl) {
+  const response = await fetchImpl(required("PRICE_QUOTE_URL"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(await jsonFile(required("PRICE_QUOTE_DEMAND"))),
+    redirect: "error",
   });
   const body = await response.json();
   if (!response.ok || body?.ok !== true) throw new Error(`pricing provider refused: ${body?.refusal?.message ?? response.status}`);
@@ -98,7 +99,7 @@ export async function main() {
   const asset = economic.asset;
   const resource = "/x402/x402-exact-purchase/invoke";
   const receiptPath = required("X402_RECEIPT_PATH");
-  const priced = await quote();
+  const priced = await quote(owner.purchaseFetch);
   const offer = requireActiveSuccessorRecord(
     await jsonFile(required("CAPABILITY_OFFER_PATH")),
     "org.emsenn.capability-offer.v3",
