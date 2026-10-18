@@ -26,6 +26,19 @@ const quote = await readHttpPurchaseQuote({
 
 `readHttpPurchaseQuote` sends exactly **one unsigned HTTP probe** and admits only the official x402 v2 payment requirement for the exact resource, selected network, token, bounded price and independently authorized recipient. The caller supplies an egress-controlled `fetchImpl`; it does not use ambient network authority or follow redirects. POST and other state-changing method probes are for already-known **payment-first** sellers only; an untrusted non-x402 origin might otherwise perform a side effect before returning 402. This is not an automatic purchase. The readout explicitly reports that no signing, payment, settlement, or delivery has occurred.
 
+To **form a durable exact-EVM signature**, import
+`authorizeQuotedHttpPayment` from
+`@red-cup-engineering/x402-exact-purchase-service/http-authorization`.
+It consumes one owner's `{quote, paymentRequired}`, exact URL/method/body and
+owner-held `payer` ({signer, network, caip10}), asset, budget and **independently
+authorized payee**. It refuses resource, representation or full-term drift
+before signing, then returns a replayable PAYMENT-SIGNATURE with explicit
+no-payment/no-settlement observations. Never log or expose that signature:
+the buyer must durably retain it in a private original recovery record before
+sending. The same `exactEvmBuyerClient` now configures ordinary and
+recoverable purchases, rather than each public storefront registering its
+own x402 signing protocol.
+
 For owners of **durably recoverable purchases**, the same subpath now also exports
 `readHttpPurchaseTerms(options)`. It performs the identical bounded unsigned
 402 read but returns `{quote, paymentRequired}`: the quote is the owner's

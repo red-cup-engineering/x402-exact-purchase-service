@@ -2,8 +2,8 @@ import { admitOwnerTerms, assertQuotedPurchase, challengeNamesResource, matchesE
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { x402Client, x402HTTPClient } from "@x402/core/client";
-import { registerExactEvmScheme } from "@x402/evm/exact/client";
+import { x402HTTPClient } from "@x402/core/client";
+import { exactEvmBuyerClient } from "./http-authorization.mjs";
 import {
   loadSuccessorAccountBinding,
   SuccessorChainMigrationObstruction,
@@ -226,13 +226,9 @@ export async function purchaseHttpResource({
       || maximumResponseBytes > 64 * 1024 * 1024) {
     throw new TypeError("maximumResponseBytes must be between 1 and 67108864");
   }
-  const protocol = httpClient ?? (() => {
-    const client = new x402Client();
-    registerExactEvmScheme(client, {
-      signer: payer.signer, networks: [selectedNetwork], schemeOptions: { rpcUrl },
-    });
-    return new x402HTTPClient(client);
-  })();
+  const protocol = httpClient ?? new x402HTTPClient(exactEvmBuyerClient({
+    signer: payer.signer, network: selectedNetwork, rpcUrl,
+  }));
   const init = { method, headers: requestHeaders, body: serialized, redirect: "error",
     signal: signal ?? AbortSignal.timeout(30_000) };
   const unpaid = await fetchImpl(resource.href, init);
