@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   native-purchase:
@@ -30,27 +30,10 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: fix/owner-authorized-payee-for-real-x402-purchases-20261018
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
       - name: Install the exact declared producer and test dependency closure
-        run: npm install --ignore-scripts --no-audit --no-fund
-      - name: Persist native regenerated lock on this integration branch
-        run: |
-          if ! git diff --quiet -- package-lock.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package-lock.json
-            git commit -m "Materialize native npm lock instead of workstation symlinks"
-            git push origin HEAD:refs/heads/fix/owner-authorized-payee-for-real-x402-purchases-20261018
-          fi
-      - name: Export the native resolved lock for source receiving
-        uses: actions/upload-artifact@v4
-        with:
-          name: x402-resolved-lock
-          path: package-lock.json
-          retention-days: 1
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Exercise the native signer-safe purchase and refusal suites
         run: npm run verify
