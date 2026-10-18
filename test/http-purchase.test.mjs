@@ -31,13 +31,33 @@ function delivered(body = new Uint8Array([0, 255, 42]), settlement = {}) {
     }),
   } });
 }
-const options = { url, payer, network, asset, maximumAmount: "7" };
+const options = { url, payer, network, asset, maximumAmount: "7", expectedPayTo: payTo };
 
 test("a payable resource cannot use ambient network authority", async () => {
   await assert.rejects(purchaseHttpResource({ ...options }),
     /owner-controlled egress-safe fetchImpl/u);
   await assert.rejects(purchaseHttpResource({ ...options, fetchImpl: null }),
     /owner-controlled egress-safe fetchImpl/u);
+});
+
+test("unsigned x402 quotes can discover an unknown recipient, but spending cannot", async () => {
+  let egress = 0;
+  const quote = await readHttpPurchaseQuote({
+    url, network, asset, maximumAmount: "7",
+    fetchImpl: async () => { egress++; return challenge(); },
+  });
+  assert.equal(egress, 1);
+  assert.equal(quote.requirement.payTo, payTo);
+  assert.equal(quote.expectedPayTo, undefined, "an unsigned 402 cannot assign owner payee authority");
+
+  let signerOpened = false;
+  await assert.rejects(purchaseHttpResource({
+    ...options, expectedPayTo: undefined,
+    fetchImpl: async () => { egress++; throw new Error("no paid egress"); },
+    beforePayment: () => { signerOpened = true; },
+  }), /independently authorized expectedPayTo/u);
+  assert.equal(egress, 1, "owner must admit the payee before any purchase probe");
+  assert.equal(signerOpened, false, "a seller-provided payee never makes the buyer sign");
 });
 
 test("a buyer-admitted unsigned quote can lock the exact later payable request", async () => {
