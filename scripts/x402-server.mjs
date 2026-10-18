@@ -77,6 +77,7 @@ async function receiptState(path) {
 export async function main() {
   const owner = await import(pathToFileURL(resolve(required("X402_OWNER_MODULE"))).href);
   if (typeof owner.openPayer !== "function") throw new TypeError("owner module must export openPayer(request)");
+  if (typeof owner.purchaseFetch !== "function") throw new TypeError("owner module must export egress-safe purchaseFetch(url, init)");
   const payer = await owner.openPayer({
     deploymentManifestPath: process.env.EVM_DEPLOYMENT_MANIFEST,
     accountBindingPath: process.env.ACCOUNT_BINDING,
@@ -129,7 +130,7 @@ export async function main() {
       const result = await purchaseAndAwaitExactResource({
         ...request,
         payer,
-        fetchImpl: globalThis.fetch,
+        fetchImpl: owner.purchaseFetch,
         onSettlement: downstream => appendReceipt(receiptPath, {
           type: "X402DownstreamSettlementObservation", invocation, downstream,
         }),
@@ -168,7 +169,9 @@ export async function main() {
           || !resultUrl.pathname.startsWith(expectedPrefix)) {
         throw new Error("downstream recovery result is outside the purchased resource result boundary");
       }
-      const response = await fetch(resultUrl, { headers: { accept: "application/json" } });
+      const response = await owner.purchaseFetch(resultUrl.href, {
+        headers: { accept: "application/json" }, redirect: "error",
+      });
       const observed = await response.json();
       const delivered = observed?.terminal;
       if (!response.ok || observed?.status !== "terminal"
@@ -178,7 +181,9 @@ export async function main() {
         throw new Error("downstream recovery result does not prove one settled terminal delivery");
       }
       const offerUrl = new URL("./offer", downstreamInvoke);
-      const offerResponse = await fetch(offerUrl, { headers: { accept: "application/json" } });
+      const offerResponse = await owner.purchaseFetch(offerUrl.href, {
+        headers: { accept: "application/json" }, redirect: "error",
+      });
       const offer = await offerResponse.json();
       if (!offerResponse.ok || offer.price?.network !== intent.request.network
           || !/^[1-9][0-9]*$/u.test(offer.price?.amount ?? "")

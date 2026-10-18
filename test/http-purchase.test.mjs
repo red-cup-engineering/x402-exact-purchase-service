@@ -33,6 +33,13 @@ function delivered(body = new Uint8Array([0, 255, 42]), settlement = {}) {
 }
 const options = { url, payer, network, asset, maximumAmount: "7" };
 
+test("a payable resource cannot use ambient network authority", async () => {
+  await assert.rejects(purchaseHttpResource({ ...options }),
+    /owner-controlled egress-safe fetchImpl/u);
+  await assert.rejects(purchaseHttpResource({ ...options, fetchImpl: null }),
+    /owner-controlled egress-safe fetchImpl/u);
+});
+
 test("a buyer-admitted unsigned quote can lock the exact later payable request", async () => {
   const acceptedQuote = await readHttpPurchaseQuote({
     url, network, asset, maximumAmount: "7", expectedPayTo: payTo,

@@ -18,8 +18,9 @@ if (process.argv.includes("--help")) {
   process.stdout.write(`Standard HTTP purchase:
   purchase-x402-exact-resource --request REQUEST.json --payer-module MODULE.mjs
 Request: url, method, optional body/headers, network, asset, maximumAmount.
-Module: openPayer(request) returns { network, caip10, signer }; optional
-beforePayment(intent) and onSettlement(receipt) retain evidence in the owner's books.
+Module: openPayer(request) returns { network, caip10, signer }, and
+purchaseFetch(url, init) is the owner's egress-safe network capability.
+Optional beforePayment(intent) and onSettlement(receipt) retain owner evidence.
 Returns exact body (base64), content type, size, SHA-256 and facilitator receipt.
 Settlement does not certify delivery acceptance or independent chain verification.
 One payment attempt is sent; no automatic retries.
@@ -34,14 +35,17 @@ Private exchange purchase:
   const request = await jsonInput(option("--request"));
   const owner = await import(pathToFileURL(resolve(option("--payer-module"))).href);
   if (typeof owner.openPayer !== "function") throw new TypeError("payer module must export openPayer(request)");
+  if (typeof owner.purchaseFetch !== "function") throw new TypeError("payer module must export egress-safe purchaseFetch(url, init)");
   const payer = await owner.openPayer(structuredClone(request));
   const receipt = await purchaseHttpResource({
-    ...request, payer, beforePayment: owner.beforePayment, onSettlement: owner.onSettlement,
+    ...request, payer, fetchImpl: owner.purchaseFetch,
+    beforePayment: owner.beforePayment, onSettlement: owner.onSettlement,
   });
   process.stdout.write(`${JSON.stringify(receipt)}\n`);
 } else {
   const owner = await import(pathToFileURL(resolve(option("--payer-module"))).href);
   if (typeof owner.openPayer !== "function") throw new TypeError("payer module must export openPayer(request)");
+  if (typeof owner.purchaseFetch !== "function") throw new TypeError("payer module must export egress-safe purchaseFetch(url, init)");
   const payer = await owner.openPayer({
     deploymentManifestPath: option("--deployment-manifest", false),
     accountBindingPath: option("--account-binding", false),
@@ -53,6 +57,7 @@ Private exchange purchase:
     sturdyRef: (await readFile(option("--sturdyref-file"), "utf8")).trim(), payer,
     network: option("--network"), rpcUrl: option("--rpc-url"),
     maximumAmount: option("--maximum-amount"), asset: option("--asset"),
+    fetchImpl: owner.purchaseFetch,
   });
   process.stdout.write(`${JSON.stringify(receipt)}\n`);
 }

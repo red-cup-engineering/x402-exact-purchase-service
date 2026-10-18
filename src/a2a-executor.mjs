@@ -54,6 +54,9 @@ export async function executeOperation(source, options = {}) {
   if (request.type === "X402HttpPurchaseRequest" && !options.payer && typeof options.openPayer !== "function") {
     throw new Error("ordinary HTTP purchasing requires the actor owner’s payer or wallet opener");
   }
+  if (typeof options.purchaseFetch !== "function") {
+    throw new Error("paid x402 purchase requires the actor owner's egress-safe purchaseFetch");
+  }
   const payer = options.payer ?? (options.openPayer
     ? await options.openPayer(structuredClone(admitted))
     : await (options.openEnterpriseAccountPayer ?? openEnterpriseAccountPayer)(
@@ -69,7 +72,7 @@ export async function executeOperation(source, options = {}) {
     : options.purchaseAndAwaitExactResource ?? purchaseAndAwaitExactResource;
   const result = await purchase({
     ...admitted,
-    payer,
+    payer, fetchImpl: options.purchaseFetch,
     beforePayment: options.beforePayment,
     onSettlement: options.onSettlement,
     onDelivery: options.onDelivery,

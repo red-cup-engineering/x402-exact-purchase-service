@@ -199,11 +199,14 @@ export async function openEnterpriseAccountPayer({
  */
 export async function purchaseHttpResource({
   url, method = "GET", body, headers = {}, payer, network, asset, maximumAmount, expectedPayTo,
-  acceptedQuote, rpcUrl, fetchImpl = globalThis.fetch, httpClient, signal,
+  acceptedQuote, rpcUrl, fetchImpl, httpClient, signal,
   maximumResponseBytes = 16 * 1024 * 1024, beforePayment, onSettlement, onDelivery,
 } = {}) {
   const { resource, requestHeaders, serialized, request } =
     prepareHttpResourceRequest({ url, method, body, headers });
+  if (typeof fetchImpl !== "function") {
+    throw new TypeError("paid x402 purchase requires owner-controlled egress-safe fetchImpl");
+  }
   const { token: selectedAsset, payee: admittedPayTo } =
     admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo });
   const selectedNetwork = network;
@@ -453,11 +456,14 @@ export async function purchaseExactResource(options = {}) {
 
 export async function awaitPurchasedResult({
   receipt,
-  fetchImpl = globalThis.fetch,
+  fetchImpl,
   pollIntervalMs = 250,
   signal,
   onObservation,
 } = {}) {
+  if (typeof fetchImpl !== "function") {
+    throw new TypeError("paid x402 result observation requires owner-controlled egress-safe fetchImpl");
+  }
   if (!Number.isSafeInteger(pollIntervalMs) || pollIntervalMs < 1) {
     throw new TypeError("pollIntervalMs must be a positive safe integer");
   }

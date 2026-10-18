@@ -9,7 +9,8 @@ try {
   const owner = await import(pathToFileURL(resolve(path)).href);
   if (typeof owner.admitPurchase !== "function"
       || (owner.openPayer !== undefined && typeof owner.openPayer !== "function")
-      || (owner.quoteFetch !== undefined && typeof owner.quoteFetch !== "function")) {
+      || (owner.quoteFetch !== undefined && typeof owner.quoteFetch !== "function")
+      || (owner.purchaseFetch !== undefined && typeof owner.purchaseFetch !== "function")) {
     throw new TypeError("owner module must export admitPurchase and valid optional openPayer/quoteFetch functions");
   }
   const chunks = [];
@@ -28,6 +29,7 @@ try {
       throw new TypeError("paid x402 A2A request requires owner.openPayer");
     }),
     quoteFetch: owner.quoteFetch,
+    purchaseFetch: owner.purchaseFetch,
     beforePayment: owner.beforePayment, onSettlement: owner.onSettlement, onDelivery: owner.onDelivery,
   }))}\n`);
 } catch (error) {
