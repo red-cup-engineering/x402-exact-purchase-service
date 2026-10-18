@@ -26,6 +26,19 @@ const quote = await readHttpPurchaseQuote({
 
 `readHttpPurchaseQuote` sends exactly **one unsigned HTTP probe** and admits only the official x402 v2 payment requirement for the exact resource, selected network, token, bounded price and independently authorized recipient. The caller supplies an egress-controlled `fetchImpl`; it does not use ambient network authority or follow redirects. POST and other state-changing method probes are for already-known **payment-first** sellers only; an untrusted non-x402 origin might otherwise perform a side effect before returning 402. This is not an automatic purchase. The readout explicitly reports that no signing, payment, settlement, or delivery has occurred.
 
+For owners of **durably recoverable purchases**, the same subpath now also exports
+`readHttpPurchaseTerms(options)`. It performs the identical bounded unsigned
+402 read but returns `{quote, paymentRequired}`: the quote is the owner's
+unspent choice and the second field is the fully schema-admitted original
+x402 v2 challenge needed by the official EVM client to form a signature.
+It never returns a wallet, signature or accepted delivery. A recoverable
+buyer can persist its own signed authorization **before** any paid HTTP send,
+then replay the exact signature under its recovery protocol; the application
+must keep custody of that sensitive record and independently accept the
+recipient, spend ceiling, storage and retrial budget. Both quote forms
+share one parsed protocol admission, resource identity and exact offer
+selector. A raw third-party 402 cannot independently authorize a purchase.
+
 The pure `selectExactPaymentRequirement` is shared with `purchaseHttpResource`, so inspections and executed purchases **cannot silently diverge** on which offers are eligible. A matching unsigned offer is not a commitment from the seller, a proof of current market price, or an independent payment/chain receipt. An enterprise can now pass its **owner-admitted** `acceptedQuote` from `readHttpPurchaseQuote` into `purchaseHttpResource`. The one upstream request preparer binds URL, HTTP method, normalized caller-header digest and serialized body digest; before signing, the purchase additionally requires the new 402 to preserve the entire accepted payment requirement (including exact amount, recipient, timeout and token-signing metadata). Request drift is refused before egress; terms drift is refused before a signature, with `X402_QUOTE_DRIFT`. This reduces quote-to-purchase substitution risk but the unsigned quote remains **neither independent merchant authority nor proof of settlement**. Only the enterprise owner's admission can authorize buying, and the owner still supplies its own egress policy and payment-recipient authority.
 
 Operators must re-admit the observed quote during the actual purchase. For broader public, unsigned **GET/HEAD** discovery and Bazaar metadata inspection, the separate `@561-group/x402-boundary-reference/observe` already exists; this API specializes the Engineering buyer to a particular enterprise budget and exact method/body rather than recreating that public catalog product.
