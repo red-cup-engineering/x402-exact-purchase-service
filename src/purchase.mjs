@@ -1,4 +1,4 @@
-import { admitOwnerTerms, assertQuotedPurchase, challengeNamesResource, matchesExactPaymentSettlementReport, prepareHttpResourceRequest, selectExactPaymentRequirement } from "./http-quote.mjs";
+import { requireOwnerPayee, assertQuotedPurchase, challengeNamesResource, matchesExactPaymentSettlementReport, prepareHttpResourceRequest, selectExactPaymentRequirement } from "./http-quote.mjs";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
@@ -208,7 +208,7 @@ export async function purchaseHttpResource({
     throw new TypeError("paid x402 purchase requires owner-controlled egress-safe fetchImpl");
   }
   const { token: selectedAsset, payee: admittedPayTo } =
-    admitOwnerTerms({ network, asset, maximumAmount, expectedPayTo });
+    requireOwnerPayee({ network, asset, maximumAmount, expectedPayTo });
   const selectedNetwork = network;
   const ceiling = maximumAmount;
   // Refuse a mutated method/body/URL or weakened owner authority before egress.
