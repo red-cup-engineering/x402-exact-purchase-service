@@ -139,7 +139,7 @@ export async function quoteFetch(target, init) {
     };
     const paid = await invoke({ id: semanticId(purchaseBody), ...purchaseBody });
     assert.notEqual(paid.exitCode, 0);
-    assert.match(paid.stderr, /paid x402 A2A request requires owner.openPayer/u);
+    assert.match(paid.stderr, /egress-safe purchaseFetch/u);
     assert.equal(paid.stdout, "");
   } finally {
     await rm(root, { recursive: true, force: true });
