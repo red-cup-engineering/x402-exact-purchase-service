@@ -159,7 +159,7 @@ export function matchesExactPaymentSettlementReport(report, {
  * DNS, redirect following, signing, settlement, or purchased response reading.
  * A POST probe is only suitable for an owner's known x402-first endpoint.
  */
-export async function readHttpPurchaseQuote({
+export async function readHttpPurchaseTerms({
   url, method = "GET", body, headers = {}, network, asset, maximumAmount,
   expectedPayTo, fetchImpl, httpClient, signal,
 } = {}) {
@@ -199,7 +199,7 @@ export async function readHttpPurchaseQuote({
   const requirement = selectExactPaymentRequirement(required, {
     network, asset, maximumAmount, expectedPayTo,
   });
-  return Object.freeze({
+  const quote = Object.freeze({
     type: "X402HttpQuote",
     request,
     requirement: Object.freeze(requirement),
@@ -210,4 +210,18 @@ export async function readHttpPurchaseQuote({
       settlementObserved: false, deliveryObserved: false,
     }),
   });
+  // A durable purchaser needs the validated *original* server challenge for
+  // the official EVM signer. This is still an UNSIGNED, untrusted merchant
+  // observation; the independently admitted owner's quote constrains the
+  // unique eligible network, token, payee and maximum amount. The paid HTTP
+  // send and its recovery remain distinct effects.
+  return Object.freeze({ quote, paymentRequired: structuredClone(validatePaymentRequired(required)) });
+}
+
+/** One signer-free quote for UIs, MCP actors and budget previews. The same
+ * source read also serves recoverable buyers which need the original v2
+ * challenge to construct the official payment authorization. */
+export async function readHttpPurchaseQuote(options = {}) {
+  const { quote } = await readHttpPurchaseTerms(options);
+  return quote;
 }
