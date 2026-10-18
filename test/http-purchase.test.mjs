@@ -82,7 +82,7 @@ test("a buyer-admitted unsigned quote can lock the exact later payable request",
 
 test("quote lock refuses request or challenge drift before any payment signature", async () => {
   const acceptedQuote = await readHttpPurchaseQuote({
-    url, network, asset, maximumAmount: "7",
+    url, network, asset, maximumAmount: "7", expectedPayTo: payTo,
     fetchImpl: async () => challenge(),
   });
   let egress = 0;
@@ -93,7 +93,7 @@ test("quote lock refuses request or challenge drift before any payment signature
   assert.equal(egress, 0, "request drift is rejected before the first probe");
 
   const headerQuote = await readHttpPurchaseQuote({
-    url, network, asset, maximumAmount: "7",
+    url, network, asset, maximumAmount: "7", expectedPayTo: payTo,
     headers: { accept: "application/json" },
     fetchImpl: async () => challenge(),
   });
