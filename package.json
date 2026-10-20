@@ -1,6 +1,6 @@
 {
   "name": "@red-cup-engineering/x402-exact-purchase-service",
-  "version": "0.2.1",
+  "version": "0.2.1-dev.0",
   "private": false,
   "type": "module",
   "description": "Buys native x402 HTTP resources with an enterprise-owned signer and retains payment and delivery evidence; also supports the private exchange delivery contract.",
