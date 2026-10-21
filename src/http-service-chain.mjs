@@ -92,6 +92,30 @@ function stageSnapshot(stage, index) {
   }), maximum });
 }
 
+
+/** Admission with zero wallet/network effects. The A2A owner runs this
+ * BEFORE opening its signer, and the buyer repeats it before paid egress.
+ * Source schemas and seller identity remain original, not rewritten here.
+ */
+export async function preflightHttpServiceChain({
+  stages, initialBody, network, asset, maximumTotalAtomic, validateInput,
+} = {}) {
+  if (!Array.isArray(stages) || stages.length < 2 || stages.length > MAX_CELLS)
+    throw new TypeError("service chain requires two to eight original payable cells");
+  if (!CAIP.test(network ?? "") || !ADDRESS.test(asset?.toLowerCase() ?? ""))
+    throw new TypeError("service chain requires one explicit EVM payment denomination");
+  if (typeof validateInput !== "function")
+    throw new TypeError("service chain requires the original source input validator");
+  const ceiling = atomic(maximumTotalAtomic, "maximumTotalAtomic", true);
+  const cells = stages.map(stageSnapshot);
+  const allMaximum = cells.reduce((total, cell) => total + cell.maximum, 0n);
+  if (allMaximum > ceiling)
+    throw new RangeError("sum of independently authorized cell maxima exceeds total chain budget");
+  const body = jsonSnapshot(initialBody, "first cell input");
+  admitValidation(await validateInput(cells[0].offer, body), "first cell input");
+  return Object.freeze({ cells: Object.freeze(cells), body, ceiling });
+}
+
 // A buyer-delegated finite Hoare program: each service has independent
 // owner-admitted payment preconditions, original typed IO, separate receipts,
 // and observed delivery postconditions. Accepted Work belongs to AOE.
@@ -100,13 +124,10 @@ function stageSnapshot(stage, index) {
 export async function executeHttpServiceChain({
   stages, initialBody, network, asset, payer, maximumTotalAtomic,
   purchaseHttpResource, projectMarketOfferBody, validateInput, validateOutput,
-  fetchImpl, beforePayment, onSettlement, onDelivery, onStage,
+  fetchImpl, beforePayment, onSettlement, onDelivery, onStage, onFailure,
   maximumResponseBytes = MAX_RESPONSE_BYTES,
 } = {}) {
-  if (!Array.isArray(stages) || stages.length < 2 || stages.length > MAX_CELLS)
-    throw new TypeError("service chain requires two to eight original payable cells");
-  if (!CAIP.test(network ?? "") || !ADDRESS.test(asset?.toLowerCase() ?? "") ||
-      payer?.network !== network || typeof payer?.caip10 !== "string" ||
+  if (payer?.network !== network || typeof payer?.caip10 !== "string" ||
       typeof fetchImpl !== "function")
     throw new TypeError("service chain requires one wallet-bound denomination and owner-controlled egress");
   if ([purchaseHttpResource, projectMarketOfferBody, validateInput, validateOutput]
@@ -120,14 +141,10 @@ export async function executeHttpServiceChain({
   if (!Number.isSafeInteger(maximumResponseBytes) || maximumResponseBytes < 1 ||
       maximumResponseBytes > MAX_RESPONSE_BYTES)
     throw new TypeError("service chain response budget is out of bounds");
-  const ceiling = atomic(maximumTotalAtomic, "maximumTotalAtomic", true);
-  const cells = stages.map(stageSnapshot);
-  const allMaximum = cells.reduce((total, cell) => total + cell.maximum, 0n);
-  if (allMaximum > ceiling) {
-    throw new RangeError("sum of independently authorized cell maxima exceeds total chain budget");
-  }
-  let body = jsonSnapshot(initialBody, "first cell input");
-  admitValidation(await validateInput(cells[0].offer, body), "first cell input");
+  const { cells, ceiling, body: firstBody } = await preflightHttpServiceChain({
+    stages, initialBody, network, asset, maximumTotalAtomic, validateInput,
+  });
+  let body = firstBody;
   const completed = [];
   const receipts = [];
   let reportedSpend = 0n;
@@ -207,6 +224,12 @@ export async function executeHttpServiceChain({
         uncertainReceipt: error.receipt ?? null,
         retryAutomatically: false,
       });
+      // The originating buyer, not its seller, owns private recovery custody.
+      // A failed journal is a further obstruction, never permission to retry.
+      if (onFailure !== undefined) {
+        try { await onFailure(error.chainProgress, error); }
+        catch (journalCause) { error.failureJournalRefusal = journalCause; }
+      }
       throw error;
     }
   }

@@ -30,6 +30,14 @@ try {
     }),
     quoteFetch: owner.quoteFetch,
     purchaseFetch: owner.purchaseFetch,
+    // Hoare chains read the original source catalog and validators only
+    // through the owning enterprise's explicitly installed capabilities.
+    // A single x402 payer or A2A request does not grant these automatically.
+    validateInput: owner.validateInput,
+    validateOutput: owner.validateOutput,
+    projectMarketOfferBody: owner.projectMarketOfferBody,
+    onStage: owner.onStage,
+    onFailure: owner.onFailure,
     beforePayment: owner.beforePayment, onSettlement: owner.onSettlement, onDelivery: owner.onDelivery,
   }))}\n`);
 } catch (error) {

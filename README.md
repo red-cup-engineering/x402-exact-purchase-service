@@ -150,3 +150,36 @@ Integration and production release require the actual installed original
 Networking JSON Schema supplier and original x402 buyer, secure owner
 journals, versioned package consumption and external settlement/delivery
 observations; mock receipts are test fixtures, not purchased goods.
+
+### Addressed A2A chain invocation (original x402 buyer)
+
+The existing \`execute-x402-exact-purchase-a2a-message --owner-module OWNER\`
+now accepts \`X402HttpServiceChainRequest\`, addressed to
+\`urn:ame:x402-exact-purchase-service\`. \`purchase\` is the user's
+**proposal**, not a wallet grant, inferred seller catalog or checkout.
+
+The enterprise owner's original \`admitPurchase(proposal)\` must independently
+derive a complete \`{stages,initialBody,network,asset,maximumTotalAtomic}\`
+from its admitted seller catalog and **its own per-cell rights**, where each
+stage has \`{offer,authority:{expectedPayTo,maximumAmount,acceptedQuote?}}\`.
+No public endpoint, list of advertised dollar prices or x402 402 header
+supplies those authorizations.
+
+The same owner module must export \`openPayer\`, \`purchaseFetch\` (egress
+admission), \`validateInput\`, \`validateOutput\`,
+\`projectMarketOfferBody\`, \`beforePayment\`, \`onSettlement\`,
+\`onDelivery\`, \`onStage\`, and \`onFailure\` as **independently installed
+original capabilities**. A2A admission and finite total-budget validation run
+BEFORE any wallet opens; absent callbacks refuse without access or spending.
+The runtime invokes the one original \`purchaseHttpResource\`, not an
+A2A-specific payment implementation. Owner journals must durably retain
+pre-payment intent and each settlement/delivery, and on a stopped chain
+\`onFailure\` retains \`chainProgress\` privately (including uncertainty).
+No automatic retry of prior paid cells occurs.
+
+Successful output is the original content-addressed
+\`X402HttpServiceChainResult\`, containing the per-cell original receipts and
+final delivered JSON; it makes no claim of independent AOE Work acceptance.
+Native tests exercise a three-stage addressed chain and budget/grant/journal
+refusals. Source tests or a mock facilitator report are not a real purchase,
+deployed signer, external revenue or on-chain settlement.
