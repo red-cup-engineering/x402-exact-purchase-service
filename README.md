@@ -69,3 +69,84 @@ The reply retains the original request’s canonical ID, context and task, and c
 `purchaseExactResource` additionally retains the private exchange’s OCapN and terminal-delivery contract. Its private account activation remains a separate requirement for that interface.
 
 For private-exchange purchases and the seller, the owner module supplies `openPayer`; the seller reads its module path from `X402_OWNER_MODULE`. An owner that uses the binding validator may call `openEnterpriseAccountPayer` with its own `openSettlementSigner` function. Provisioning an account and controlling its signer are separate capabilities; the buyer never imports an unexported provisioner custody path. The activation materializer requires an explicit `--deployment` manifest and continues to distinguish configured identities from live observation.
+
+## Buyer-owned Rendanheyi/Hoare paid service chains
+
+The original purchase package now exposes `./http-service-chain` with
+`executeHttpServiceChain`. This is an **actual buyer-side execution path** for
+2–8 separately payable **POST JSON** service cells on one explicitly
+denominated x402 network and asset. It is not a second marketplace, seller,
+Signer, commercial authority, AOE Work engine, or aggregator custody account.
+
+The caller provides the **original seller's public `marketCatalogReadout`
+rows**, independently owner-authorized `expectedPayTo` and `maximumAmount`
+**for each cell**, one total atomic spending cap, buyer signer and
+owner-controlled egress. Before any purchase the program validates each
+published/typed origin and independent payee and requires **the sum of all
+per-cell maximum charges to fit within the owner's total chain cap**.
+Quoted payment requirements may also be bound per cell using each original
+`readHttpPurchaseQuote` result. The seller's own 402 is never approval to
+spend or proof of an independently permitted payee.
+
+The owner wires the original components, rather than copies of their
+logic, as follows:
+
+```js
+import { purchaseHttpResource } from "@red-cup-engineering/x402-exact-purchase-service";
+import { executeHttpServiceChain } from "@red-cup-engineering/x402-exact-purchase-service/http-service-chain";
+import { projectMarketOfferBody } from "@red-cup-engineering/x402-services-section/market/catalog";
+import { validateJsonSchema } from "@red-cup-engineering/json-schema-services-section/validation";
+
+// ownerCells are SOURCE-ADMITTED actual original offers and separate grants.
+// They must NOT be populated from a stranger's self-reported 402 payee.
+const result = await executeHttpServiceChain({
+  stages: ownerCells.map(({ offer, authority }) => ({ offer, authority })),
+  initialBody: { /* the first original seller's admitted JSON request */ },
+  network: ownerNetwork, asset: ownerAsset, payer: ownerPayer,
+  maximumTotalAtomic: authorizedChainCeiling,
+  purchaseHttpResource, projectMarketOfferBody,
+  validateInput: (offer, body) => validateJsonSchema(body, offer.request.bodySchema),
+  validateOutput: (offer, body) => validateJsonSchema(body, offer.output.schema),
+  fetchImpl: ownerEgressSafeFetch,
+  beforePayment: (index, offer, signedAttempt) => privateAttemptJournal.append(index, offer, signedAttempt),
+  onSettlement: (index, offer, settlement) => privateSettlementJournal.append(index, offer, settlement),
+  onDelivery: (index, offer, observation) => privateDeliveryJournal.append(index, offer, observation),
+  onStage: (observation, receipt) => privateWorkJournal.append(observation, receipt),
+});
+```
+
+The original Networking `projectMarketOfferBody` alone validates and selects
+the **actual paid output's required fields** into the next seller's admitted
+JSON Schema. Whole-result forwarding that violates `additionalProperties:
+false`, schema mismatch, too-large UTF-8, source/target identity drift, non-JSON
+content or output digest mismatch refuse. Each actual `purchaseHttpResource`
+uses the independently authorized payee and full x402 protocol and quote
+binding, not an unsigned simulation. Every confirmed delivered result has
+one original receipt and content digest. `reportedSpendAtomic` is explicitly
+a **matching facilitator report**, not independent final chain settlement or
+accounting profit.
+
+If a later cell fails or payment status is unknown, the function **never
+auto-retries**. It throws with `error.chainProgress` containing the original
+earlier purchase receipts, possibly paid current receipt, failure coordinate,
+reported spend and `retryAutomatically:false`. The owning enterprise must
+reconcile real settlement, recover a purchased result where supported, and
+decide whether to create any new authorized Work. Receipt objects and signed
+attempts can contain private customer data; the hooks belong to the customer's
+**private original journals**, never public page logs.
+
+Independent buyer acceptance, original source/right qualification,
+multi-provider x402 merchant installation, revenue/margin allocation,
+refunding and AOE/SignGraph resource accounting remain separate downstream
+receiving. This source implementation does **not** imply that the canonical
+JSON → UTF-8 → NI chain has already been paid on mainnet or that a Bazaar
+buyer has completed a purchase.
+
+**Regression:** `node --test test/http-service-chain.test.mjs` covers three
+independent cells, exact payees, atomic cap preflight, typed field selection,
+late paid-byte corruption, uncertain signed-payment outcome, payee drift,
+invalid settlement, source identity/admission failure and journal refusal.
+Integration and production release require the actual installed original
+Networking JSON Schema supplier and original x402 buyer, secure owner
+journals, versioned package consumption and external settlement/delivery
+observations; mock receipts are test fixtures, not purchased goods.
