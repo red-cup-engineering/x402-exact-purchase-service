@@ -135,7 +135,7 @@ export async function executeHttpServiceChain({
     const cell = cells[index];
     let receipt;
     try {
-      admitValidation(await validateInput(cell.offer, body), `cell ${index} input`);
+      if (index > 0) admitValidation(await validateInput(cell.offer, body), `cell ${index} input`);
       receipt = await purchaseHttpResource({
         url: cell.offer.url,
         method: "POST",
@@ -162,6 +162,8 @@ export async function executeHttpServiceChain({
           requirement?.payTo?.toLowerCase() !== cell.authority.expectedPayTo) {
         throw new TypeError("paid cell receipt contradicts the authorized original offer or payee");
       }
+      if (receipt.settlementMatchesRequirements !== true)
+        throw new TypeError("cell did not report matching facilitator settlement");
       const amount = atomic(requirement.amount, `cell ${index} received x402 amount`, true);
       if (amount > cell.maximum || reportedSpend + amount > ceiling)
         throw new RangeError("paid cell receipt contradicts the chain budget");
