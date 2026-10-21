@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readHttpPurchaseQuote, requireOwnerPayee } from "./http-quote.mjs";
+import { preflightHttpServiceChain, executeHttpServiceChain } from "./http-service-chain.mjs";
 import { Message, Role } from "@a2a-js/sdk";
 import { extractRmnPart, rmnPart } from "@red-cup-engineering/a2a-rmn-part-service";
 import { decodeSemantic, semanticBytes, semanticId } from "@red-cup-engineering/relation-model-notation-cbor-codec";
@@ -26,13 +27,58 @@ export async function executeOperation(source, options = {}) {
   if (!exact(request) || request.provider !== ACTOR) {
     throw new Error("exact provider-addressed canonical SEN operation is required");
   }
-  if (!["X402ExactPurchaseRequest", "X402HttpPurchaseRequest", "X402HttpQuoteRequest"].includes(request.type) || !request.purchase || typeof request.purchase !== "object") {
+  if (!["X402ExactPurchaseRequest", "X402HttpPurchaseRequest", "X402HttpQuoteRequest",
+    "X402HttpServiceChainRequest"].includes(request.type) || !request.purchase ||
+      typeof request.purchase !== "object" || Array.isArray(request.purchase)) {
     throw new Error("x402 exact purchase request requires one purchase");
   }
   if (typeof options.admitPurchase !== "function") {
     throw new Error("the actor owner must admit the purchase before its wallet is opened");
   }
   const admitted = structuredClone(await options.admitPurchase(structuredClone(request)));
+  // Source-owned micro-enterprise chain, with its *own* A2A operation identity.
+  // Owner admission yields original selected seller offers, per-cell grants and
+  // a total cap; proposals can never mint a payee or grant wallet custody.
+  if (request.type === "X402HttpServiceChainRequest") {
+    const required = [
+      "purchaseFetch", "validateInput", "validateOutput",
+      "projectMarketOfferBody", "beforePayment", "onSettlement",
+      "onDelivery", "onStage", "onFailure",
+    ];
+    if (required.some(name => typeof options[name] !== "function")) {
+      throw new TypeError("Hoare service chain requires original source validators, owner-controlled egress, field projection and private journals");
+    }
+    // All declared cells/payees/limits and the first real input contract are
+    // checked BEFORE opening the owner's signer. Source control is not inferred
+    // from a buyer's untrusted request or the merchant's unsigned challenge.
+    await preflightHttpServiceChain({
+      stages: admitted.stages, initialBody: admitted.initialBody,
+      network: admitted.network, asset: admitted.asset,
+      maximumTotalAtomic: admitted.maximumTotalAtomic,
+      validateInput: options.validateInput,
+    });
+    if (typeof options.openPayer !== "function" && !options.payer) {
+      throw new TypeError("Hoare service chain requires an explicit owner-held payer opener");
+    }
+    const payer = options.payer ?? await options.openPayer(structuredClone(admitted));
+    const result = await (options.executeHttpServiceChain ?? executeHttpServiceChain)({
+      ...admitted, payer,
+      fetchImpl: options.purchaseFetch,
+      purchaseHttpResource: options.purchaseHttpResource ?? purchaseHttpResource,
+      projectMarketOfferBody: options.projectMarketOfferBody,
+      validateInput: options.validateInput,
+      validateOutput: options.validateOutput,
+      beforePayment: options.beforePayment,
+      onSettlement: options.onSettlement,
+      onDelivery: options.onDelivery,
+      onStage: options.onStage,
+      onFailure: options.onFailure,
+    });
+    return record({
+      type: "X402HttpServiceChainResult", provider: ACTOR,
+      request: request.id, result,
+    });
+  }
   if (!admitted || typeof admitted !== "object" || Array.isArray(admitted)
       || typeof admitted.url !== "string" || typeof admitted.network !== "string"
       || typeof admitted.asset !== "string" || typeof admitted.maximumAmount !== "string") {
