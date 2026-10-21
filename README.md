@@ -1,5 +1,12 @@
 # Native HTTP purchasing
 
+<!-- 561-group-standards:badges:start -->
+[![Red Cup Engineering](https://img.shields.io/badge/561%20Group-Red%20Cup%20Engineering-c0392b)](https://github.com/red-cup-engineering)
+[![License: MIT](https://img.shields.io/badge/license-MIT-c0392b)](LICENSE)
+[![Indigenous data: CARE](https://img.shields.io/badge/Indigenous%20data-CARE-4b6f44)](https://github.com/red-cup-engineering/.github/blob/main/GOVERNANCE.md)
+[![Tips welcome](https://img.shields.io/badge/tips-welcome-d4a017)](https://github.com/561-group/.github/blob/main/TIPS.md)
+<!-- 561-group-standards:badges:end -->
+
 **Canonical package ownership:** this standalone repository is the intended Red Cup source owner for `@red-cup-engineering/x402-exact-purchase-service`. Its embedded same-name predecessor still exists inside `computer-engineering-services-section`; that is a migration source, **not** a second merchant, wallet, or independent buyer authority. Their successor-deployment source blobs coincide, and the standalone package now exports the existing `./successor-deployment` subpath. Their A2A transport, policy-signer custody and activation materialization still differ; removing or rebinding the predecessor requires exact dependency closure and downstream receiving, not blind file deletion. Neither source claims that consolidation or live chain receiving has already occurred.
 
 `purchaseHttpResource` buys an HTTPS representation using the official x402 SDK. The owner supplies the signer, CAIP-10 account, network, token and maximum amount, and an explicit egress-safe `fetchImpl` to send the unsigned probe and paid request. No default ambient `globalThis.fetch` can send a signed authorization to an unadmitted endpoint. For **every paid request**, the owner supplies an **independently authorized** `expectedPayTo` before any network probe or signing. Unknown payees may be observed with the **unsigned quote API only**; a seller-authored 402 challenge must never select its own recipient as the buyer's spending authority. A challenge naming a different recipient is refused before signing. Optional recipient, asset or payer fields in a facilitator report cannot contradict those admitted terms; a report is still not independent chain settlement proof. `beforePayment` receives the exact request and signed payment before transmission; `onSettlement` receives the facilitator’s report before delivery is read. Retain both in the purchasing enterprise’s own books. A settlement report, received bytes and requester acceptance are distinct observations.
