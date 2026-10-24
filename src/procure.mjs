@@ -11,7 +11,7 @@
  * own books.
  */
 
-const AMOUNT = /^[1-9][0-9]*$/u;
+const AMOUNT = /^(0|[1-9][0-9]*)$/u;
 
 const lower = (a, b) => (BigInt(a) < BigInt(b) ? a : b);
 
@@ -26,21 +26,37 @@ export async function procureHttpResource({
   now = () => new Date().toISOString(), readQuote, purchase, rpcUrl,
 } = {}) {
   if (!Array.isArray(candidates) || candidates.length === 0) throw new TypeError("at least one procurement candidate is required");
-  if (!ceiling || !AMOUNT.test(ceiling.maximumAmount ?? "")) throw new TypeError("ceiling.maximumAmount must be a positive integer atomic amount");
+  if (!ceiling || !AMOUNT.test(ceiling.maximumAmount ?? "")) throw new TypeError("ceiling.maximumAmount must be a nonnegative integer atomic amount");
+  // Zero is an absolute cash prohibition, not permission to search for a low-priced purchase.
+  const freeOnly = ceiling.maximumAmount === "0";
   if (typeof fetchImpl !== "function") throw new TypeError("an egress-controlled fetchImpl is required");
-  readQuote ??= (await import("./http-quote.mjs")).readHttpPurchaseQuote;
-  purchase ??= (await import("./purchase.mjs")).purchaseHttpResource;
-
   const tried = [];
   for (const source of candidates.filter((c) => c.free === true)) {
-    const response = await fetchImpl(source.url, { method: source.method ?? "GET", body: source.body, headers: source.headers, redirect: "manual" });
-    if (response.ok) {
-      await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "free", amount: "0" });
-      return { source, kind: "free", response };
+    try {
+      const response = await fetchImpl(source.url, { method: source.method ?? "GET", body: source.body, headers: source.headers, redirect: "manual" });
+      if (response.ok) {
+        await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "free", amount: "0" });
+        return { source, kind: "free", response };
+      }
+      tried.push({ url: source.url, status: response.status });
+      await response.body?.cancel();
+    } catch (error) {
+      // An unavailable supplier does not abort the search for an independent free alternative.
+      tried.push({ url: source.url, failed: error instanceof Error ? error.message : String(error) });
     }
-    tried.push({ url: source.url, status: response.status });
   }
 
+  if (freeOnly) {
+    // No x402 quote, paid dependency import, signer, or paid-network egress is admissible.
+    await record({ at: now(), kind: "x402-procurement", outcome: "unprocured", reason: "zero-cash-ceiling", tried });
+    const error = new Error("no free source delivered within the zero-cash ceiling");
+    error.code = "ZERO_CASH_PROCUREMENT_EXHAUSTED";
+    error.tried = tried;
+    throw error;
+  }
+
+  readQuote ??= (await import("./http-quote.mjs")).readHttpPurchaseQuote;
+  purchase ??= (await import("./purchase.mjs")).purchaseHttpResource;
   const quoted = [];
   for (const source of candidates.filter((c) => c.free !== true)) {
     const network = source.network ?? ceiling.network;
