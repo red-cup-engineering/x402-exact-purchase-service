@@ -11,7 +11,7 @@
  * own books.
  */
 
-const AMOUNT = /^[1-9][0-9]*$/u;
+const AMOUNT = /^(0|[1-9][0-9]*)$/u;
 
 const lower = (a, b) => (BigInt(a) < BigInt(b) ? a : b);
 
@@ -22,25 +22,59 @@ const lower = (a, b) => (BigInt(a) < BigInt(b) ? a : b);
  * Returns `{ source, kind: "free" | "bought", response?, receipt? }`.
  */
 export async function procureHttpResource({
-  candidates, ceiling, payer, fetchImpl, record = async () => {},
+  candidates, ceiling, payer, fetchImpl, admitFree = async () => true, record = async () => {},
   now = () => new Date().toISOString(), readQuote, purchase, rpcUrl,
 } = {}) {
   if (!Array.isArray(candidates) || candidates.length === 0) throw new TypeError("at least one procurement candidate is required");
-  if (!ceiling || !AMOUNT.test(ceiling.maximumAmount ?? "")) throw new TypeError("ceiling.maximumAmount must be a positive integer atomic amount");
+  if (!ceiling || typeof ceiling.maximumAmount !== "string" || !AMOUNT.test(ceiling.maximumAmount)) throw new TypeError("ceiling.maximumAmount must be a nonnegative integer atomic amount");
+  // Zero is an absolute cash prohibition, not permission to search for a low-priced purchase.
+  const freeOnly = ceiling.maximumAmount === "0";
   if (typeof fetchImpl !== "function") throw new TypeError("an egress-controlled fetchImpl is required");
-  readQuote ??= (await import("./http-quote.mjs")).readHttpPurchaseQuote;
-  purchase ??= (await import("./purchase.mjs")).purchaseHttpResource;
-
+  if (typeof admitFree !== "function") throw new TypeError("admitFree must be a source-qualified response acceptance function");
   const tried = [];
   for (const source of candidates.filter((c) => c.free === true)) {
-    const response = await fetchImpl(source.url, { method: source.method ?? "GET", body: source.body, headers: source.headers, redirect: "manual" });
-    if (response.ok) {
-      await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "free", amount: "0" });
-      return { source, kind: "free", response };
+    let response;
+    try {
+      response = await fetchImpl(source.url, { method: source.method ?? "GET", body: source.body, headers: source.headers, redirect: "manual" });
+    } catch (error) {
+      // Transport failures can fall back to another separately admitted free supplier.
+      tried.push({ url: source.url, failed: error instanceof Error ? error.message : String(error) });
+      continue;
     }
-    tried.push({ url: source.url, status: response.status });
+    if (response.ok) {
+      let admissible = false;
+      try {
+        // HTTP 200 alone is not proof of source rights, fresh data, or useful work.
+        // The buyer supplies its own source- and requirement-qualified predicate.
+        admissible = await admitFree({ source, response: response.clone?.() ?? response }) === true;
+      } catch (error) {
+        tried.push({ url: source.url, refused: "free-output-admission-error" });
+      }
+      if (admissible) {
+        // Recording and returning accepted output are NOT transport retries: a failed
+        // record is an operating error, not permission to silently acquire again.
+        await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "free", amount: "0" });
+        return { source, kind: "free", response };
+      }
+      if (!tried.some(row => row.url === source.url && row.refused === "free-output-admission-error"))
+        tried.push({ url: source.url, refused: "free-output-not-admitted" });
+    } else {
+      tried.push({ url: source.url, status: response.status });
+    }
+    await response.body?.cancel?.();
   }
 
+  if (freeOnly) {
+    // No x402 quote, paid dependency import, signer, or paid-network egress is admissible.
+    await record({ at: now(), kind: "x402-procurement", outcome: "unprocured", reason: "zero-cash-ceiling", tried });
+    const error = new Error("no free source delivered within the zero-cash ceiling");
+    error.code = "ZERO_CASH_PROCUREMENT_EXHAUSTED";
+    error.tried = tried;
+    throw error;
+  }
+
+  readQuote ??= (await import("./http-quote.mjs")).readHttpPurchaseQuote;
+  purchase ??= (await import("./purchase.mjs")).purchaseHttpResource;
   const quoted = [];
   for (const source of candidates.filter((c) => c.free !== true)) {
     const network = source.network ?? ceiling.network;

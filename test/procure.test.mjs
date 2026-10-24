@@ -66,3 +66,121 @@ test("nothing admissible is an error carrying every refusal", async () => {
     ceiling, fetchImpl: async () => response(402), readQuote: quoteFor({ "https://c.example": "90000" }), purchase: async () => ({}),
   }), (e) => e.tried.length === 1 && /no eligible offer/.test(e.tried[0].refused));
 });
+
+test("zero cash is a native budget: free delivery without buyer, payee, or paid dependencies", async () => {
+  const calls = [], rows = [];
+  const out = await procureHttpResource({
+    candidates: [
+      { url: "https://paid.example/signal", expectedPayTo: "0x" + "22".repeat(20) },
+      { url: "https://first-free.example/signal", free: true },
+      { url: "https://second-free.example/signal", free: true },
+    ],
+    ceiling: { maximumAmount: "0" },
+    fetchImpl: async (url, options) => {
+      calls.push([url, options.redirect]);
+      if (url.includes("first-free")) throw new Error("free provider unreachable");
+      return response(200);
+    },
+    record: async row => rows.push(row),
+    readQuote: async () => assert.fail("a zero-cash turn must never quote paid sources"),
+    purchase: async () => assert.fail("a zero-cash turn must never purchase"),
+  });
+  assert.equal(out.kind, "free");
+  assert.equal(out.source.url, "https://second-free.example/signal");
+  assert.deepEqual(calls, [["https://first-free.example/signal", "manual"], ["https://second-free.example/signal", "manual"]]);
+  assert.equal(rows.length, 1);
+  assert.deepEqual({ amount: rows[0].amount, outcome: rows[0].outcome }, { amount: "0", outcome: "free" });
+});
+
+test("zero cash excludes paid fallback and quotes even after a declared free source returns 402", async () => {
+  const rows = [], calls = [];
+  await assert.rejects(procureHttpResource({
+    candidates: [
+      { url: "https://free.example/signal", free: true },
+      { url: "https://paid.example/signal", expectedPayTo: "0x" + "22".repeat(20) },
+    ],
+    ceiling: { maximumAmount: "0" },
+    fetchImpl: async url => { calls.push(url); return response(402); },
+    record: async row => rows.push(row),
+    readQuote: async () => assert.fail("zero-cash procurement cannot inspect paid sources"),
+    purchase: async () => assert.fail("zero-cash procurement cannot sign a purchase"),
+  }), error => error.code === "ZERO_CASH_PROCUREMENT_EXHAUSTED"
+      && error.tried.length === 1 && error.tried[0].status === 402);
+  assert.deepEqual(calls, ["https://free.example/signal"]);
+  assert.deepEqual(rows.map(row => row.outcome), ["unprocured"]);
+  assert.equal(rows[0].reason, "zero-cash-ceiling");
+});
+
+test("positive budgets preserve the admitted paid-price ranking after free attempts fail", async () => {
+  const bought = [];
+  const out = await procureHttpResource({
+    candidates: [
+      { url: "https://free.example", free: true },
+      { url: "https://expensive.example", expectedPayTo: "0x" + "22".repeat(20) },
+      { url: "https://cheap.example", expectedPayTo: "0x" + "22".repeat(20) },
+    ],
+    ceiling, fetchImpl: async () => response(503),
+    readQuote: quoteFor({ "https://expensive.example": "3000", "https://cheap.example": "2000" }),
+    purchase: async ({ url }) => { bought.push(url); return { transaction: "0xabc" }; },
+  });
+  assert.equal(out.kind, "bought");
+  assert.deepEqual(bought, ["https://cheap.example"]);
+});
+
+test("non-string zero is refused before egress; failed receipt recording is never treated as a failed supplier", async () => {
+  let calls = 0;
+  await assert.rejects(procureHttpResource({
+    candidates: [{ url: "https://free.example", free: true }],
+    ceiling: { maximumAmount: 0 },
+    fetchImpl: async () => { calls++; return response(200); },
+  }), /nonnegative integer atomic/);
+  assert.equal(calls, 0);
+  await assert.rejects(procureHttpResource({
+    candidates: [
+      { url: "https://first.example", free: true },
+      { url: "https://second.example", free: true },
+    ],
+    ceiling: { maximumAmount: "0" },
+    fetchImpl: async () => { calls++; return response(200); },
+    record: async () => { throw new Error("ledger unavailable"); },
+  }), /ledger unavailable/);
+  assert.equal(calls, 1);
+});
+
+test("a zero-cash buyer refuses HTTP 200 without source-quality admission and uses the next free supplier", async () => {
+  const calls = [], rows = [];
+  const result = await procureHttpResource({
+    candidates: [
+      { url: "https://stale.example/data", free: true },
+      { url: "https://fresh.example/data", free: true },
+      { url: "https://paid.example/data", expectedPayTo: "0x" + "22".repeat(20) },
+    ],
+    ceiling: { maximumAmount: "0" },
+    fetchImpl: async url => { calls.push(url); return response(200); },
+    admitFree: async ({ source }) => source.url === "https://fresh.example/data",
+    record: async row => rows.push(row),
+    readQuote: async () => assert.fail("no paid fallback"),
+    purchase: async () => assert.fail("no signing"),
+  });
+  assert.equal(result.kind, "free");
+  assert.equal(result.source.url, "https://fresh.example/data");
+  assert.deepEqual(calls, ["https://stale.example/data", "https://fresh.example/data"]);
+  assert.equal(rows[0].amount, "0");
+});
+
+test("a malformed free-source acceptance predicate cannot authorize a purchase", async () => {
+  const calls = [];
+  await assert.rejects(procureHttpResource({
+    candidates: [
+      { url: "https://bad.example", free: true },
+      { url: "https://paid.example", expectedPayTo: "0x" + "22".repeat(20) },
+    ],
+    ceiling: { maximumAmount: "0" },
+    fetchImpl: async url => { calls.push(url); return response(200); },
+    admitFree: async () => { throw new Error("untrusted source is malformed"); },
+    readQuote: async () => assert.fail("paid quote prohibited"),
+    purchase: async () => assert.fail("paid purchase prohibited"),
+  }), e => e.code === "ZERO_CASH_PROCUREMENT_EXHAUSTED"
+    && e.tried[0]?.refused === "free-output-admission-error");
+  assert.deepEqual(calls, ["https://bad.example"]);
+});
