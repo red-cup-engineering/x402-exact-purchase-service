@@ -71,8 +71,8 @@ jobs:
             network:'eip155:8453',asset:'0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
             providers:rows
           };
-          mkdirSync('data/records/x402-facilitator-options',{recursive:true});
-          writeFileSync('data/records/x402-facilitator-options/current.json',JSON.stringify(report,null,2)+'\n');
+          mkdirSync('content/observations/x402-facilitator-options',{recursive:true});
+          writeFileSync('content/observations/x402-facilitator-options/current.json',JSON.stringify(report,null,2)+'\n');
           console.log(JSON.stringify(rows.map(x=>({name:x.name,observed:x.observed,
             base:x.x402V2ExactBaseDeclared,signers:x.signersAdvertised,
             error:x.refusal??null}))));
@@ -80,7 +80,7 @@ jobs:
       - name: Receive actual read-only provider facts at the original public buyer
         run: |
           set -euo pipefail
-          destination='data/records/x402-facilitator-options/current.json'
+          destination='content/observations/x402-facilitator-options/current.json'
           cp "$destination" "$RUNNER_TEMP/next-options.json"
           git fetch --no-tags origin "$GITHUB_REF_NAME"
           base="$(git rev-parse FETCH_HEAD)"
