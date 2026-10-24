@@ -22,7 +22,7 @@ const lower = (a, b) => (BigInt(a) < BigInt(b) ? a : b);
  * Returns `{ source, kind: "free" | "bought", response?, receipt? }`.
  */
 export async function procureHttpResource({
-  candidates, ceiling, payer, fetchImpl, record = async () => {},
+  candidates, ceiling, payer, fetchImpl, admitFree = async () => true, record = async () => {},
   now = () => new Date().toISOString(), readQuote, purchase, rpcUrl,
 } = {}) {
   if (!Array.isArray(candidates) || candidates.length === 0) throw new TypeError("at least one procurement candidate is required");
@@ -30,6 +30,7 @@ export async function procureHttpResource({
   // Zero is an absolute cash prohibition, not permission to search for a low-priced purchase.
   const freeOnly = ceiling.maximumAmount === "0";
   if (typeof fetchImpl !== "function") throw new TypeError("an egress-controlled fetchImpl is required");
+  if (typeof admitFree !== "function") throw new TypeError("admitFree must be a source-qualified response acceptance function");
   const tried = [];
   for (const source of candidates.filter((c) => c.free === true)) {
     let response;
@@ -41,12 +42,25 @@ export async function procureHttpResource({
       continue;
     }
     if (response.ok) {
-      // Recording and returning accepted output are NOT transport retries: a failed
-      // record is an operating error, not permission to silently acquire again.
-      await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "free", amount: "0" });
-      return { source, kind: "free", response };
+      let admissible = false;
+      try {
+        // HTTP 200 alone is not proof of source rights, fresh data, or useful work.
+        // The buyer supplies its own source- and requirement-qualified predicate.
+        admissible = await admitFree({ source, response: response.clone?.() ?? response }) === true;
+      } catch (error) {
+        tried.push({ url: source.url, refused: "free-output-admission-error" });
+      }
+      if (admissible) {
+        // Recording and returning accepted output are NOT transport retries: a failed
+        // record is an operating error, not permission to silently acquire again.
+        await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "free", amount: "0" });
+        return { source, kind: "free", response };
+      }
+      if (!tried.some(row => row.url === source.url && row.refused === "free-output-admission-error"))
+        tried.push({ url: source.url, refused: "free-output-not-admitted" });
+    } else {
+      tried.push({ url: source.url, status: response.status });
     }
-    tried.push({ url: source.url, status: response.status });
     await response.body?.cancel?.();
   }
 
