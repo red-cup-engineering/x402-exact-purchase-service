@@ -1,0 +1,46 @@
+{
+  "kind": "original-x402-buyer-mainnet-facilitator-options/v1",
+  "at": "2026-10-24T22:01:42.940Z",
+  "source": "official @x402/core@2.19.0 HTTPFacilitatorClient.getSupported",
+  "buyerWork": "strict zero-new-cash seller settlement supplier options",
+  "currentMerchant": "market.561.group; currently configured separately for authenticated Coinbase CDP",
+  "decision": "source-qualified candidates only, no merchant selection, commitment or paid transaction",
+  "network": "eip155:8453",
+  "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "providers": [
+    {
+      "name": "Covenant",
+      "url": "https://facilitator.opencovenant.org",
+      "vendorTerms": "https://docs.opencovenant.org/build-with-x402",
+      "advertisedFreeSponsoredGas": true,
+      "documentedDailyCapPerReceivingAddress": 500,
+      "independentlyObservedFeeAssurance": "unknown",
+      "independentComplianceScreening": "unknown",
+      "observed": true,
+      "x402V2ExactBaseDeclared": true,
+      "signersAdvertised": 1,
+      "latencyMs": 310,
+      "paymentAttempted": false,
+      "settlementAttempted": false,
+      "operationallyVerified": false,
+      "legallyCleared": false
+    },
+    {
+      "name": "xpay",
+      "url": "https://facilitator.xpay.sh",
+      "vendorTerms": "https://docs.xpay.sh/en/x402-protocol/facilitator",
+      "advertisedFreeSponsoredGas": true,
+      "documentedSettlePerMinute": 50,
+      "independentlyObservedFeeAssurance": "unknown",
+      "independentComplianceScreening": "not established by vendor documentation",
+      "observed": true,
+      "x402V2ExactBaseDeclared": true,
+      "signersAdvertised": 1,
+      "latencyMs": 278,
+      "paymentAttempted": false,
+      "settlementAttempted": false,
+      "operationallyVerified": false,
+      "legallyCleared": false
+    }
+  ]
+}
