@@ -15,7 +15,8 @@
     "./successor-activation": "./src/successor-activation.mjs",
     "./successor-deployment": "./src/successor-deployment.mjs",
     "./http-authorization": "./src/http-authorization.mjs",
-    "./http-service-chain": "./src/http-service-chain.mjs"
+    "./http-service-chain": "./src/http-service-chain.mjs",
+    "./procure": "./src/procure.mjs"
   },
   "bin": {
     "purchase-x402-exact-resource": "./scripts/purchase.mjs",
@@ -23,7 +24,7 @@
     "serve-x402-exact-purchase-seller": "./scripts/x402-server.mjs"
   },
   "scripts": {
-    "check": "node --check src/successor-deployment.mjs && node --check src/successor-activation.mjs && node --check src/http-quote.mjs && node --check src/http-authorization.mjs && node --check test/http-authorization.test.mjs && node --check src/purchase.mjs && node --check src/a2a-executor.mjs && node --check scripts/purchase.mjs && node --check scripts/execute-a2a-message.mjs && node --check scripts/activitypub-server.mjs && node --check scripts/x402-server.mjs && node --check scripts/project-successor-activation-records.mjs && node --check src/http-service-chain.mjs && node --check test/http-service-chain.test.mjs && node --check test/a2a-http-service-chain.test.mjs",
+    "check": "node --check src/successor-deployment.mjs && node --check src/successor-activation.mjs && node --check src/http-quote.mjs && node --check src/http-authorization.mjs && node --check test/http-authorization.test.mjs && node --check src/purchase.mjs && node --check src/a2a-executor.mjs && node --check scripts/purchase.mjs && node --check scripts/execute-a2a-message.mjs && node --check scripts/activitypub-server.mjs && node --check scripts/x402-server.mjs && node --check scripts/project-successor-activation-records.mjs && node --check src/http-service-chain.mjs && node --check test/http-service-chain.test.mjs && node --check test/a2a-http-service-chain.test.mjs && node --check src/procure.mjs && node --check test/procure.test.mjs",
     "test": "node --test test/*.test.mjs",
     "verify": "npm run check && npm test"
   },
