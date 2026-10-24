@@ -122,8 +122,8 @@ logic, as follows:
 ```js
 import { purchaseHttpResource } from "@red-cup-engineering/x402-exact-purchase-service";
 import { executeHttpServiceChain } from "@red-cup-engineering/x402-exact-purchase-service/http-service-chain";
-import { projectMarketOfferBody } from "@red-cup-engineering/x402-engineering-services-section/market/catalog";
-import { validateJsonSchema } from "@red-cup-engineering/json-schema-engineering-services-section/validation";
+import { projectMarketOfferBody } from "@red-cup-engineering/x402-services-section/market/catalog";
+import { validateJsonSchema } from "@red-cup-engineering/json-schema-services-section/validation";
 
 // ownerCells are SOURCE-ADMITTED actual original offers and separate grants.
 // They must NOT be populated from a stranger's self-reported 402 payee.
