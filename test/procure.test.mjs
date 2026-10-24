@@ -146,3 +146,41 @@ test("non-string zero is refused before egress; failed receipt recording is neve
   }), /ledger unavailable/);
   assert.equal(calls, 1);
 });
+
+test("a zero-cash buyer refuses HTTP 200 without source-quality admission and uses the next free supplier", async () => {
+  const calls = [], rows = [];
+  const result = await procureHttpResource({
+    candidates: [
+      { url: "https://stale.example/data", free: true },
+      { url: "https://fresh.example/data", free: true },
+      { url: "https://paid.example/data", expectedPayTo: "0x" + "22".repeat(20) },
+    ],
+    ceiling: { maximumAmount: "0" },
+    fetchImpl: async url => { calls.push(url); return response(200); },
+    admitFree: async ({ source }) => source.url === "https://fresh.example/data",
+    record: async row => rows.push(row),
+    readQuote: async () => assert.fail("no paid fallback"),
+    purchase: async () => assert.fail("no signing"),
+  });
+  assert.equal(result.kind, "free");
+  assert.equal(result.source.url, "https://fresh.example/data");
+  assert.deepEqual(calls, ["https://stale.example/data", "https://fresh.example/data"]);
+  assert.equal(rows[0].amount, "0");
+});
+
+test("a malformed free-source acceptance predicate cannot authorize a purchase", async () => {
+  const calls = [];
+  await assert.rejects(procureHttpResource({
+    candidates: [
+      { url: "https://bad.example", free: true },
+      { url: "https://paid.example", expectedPayTo: "0x" + "22".repeat(20) },
+    ],
+    ceiling: { maximumAmount: "0" },
+    fetchImpl: async url => { calls.push(url); return response(200); },
+    admitFree: async () => { throw new Error("untrusted source is malformed"); },
+    readQuote: async () => assert.fail("paid quote prohibited"),
+    purchase: async () => assert.fail("paid purchase prohibited"),
+  }), e => e.code === "ZERO_CASH_PROCUREMENT_EXHAUSTED"
+    && e.tried[0]?.refused === "free-output-admission-error");
+  assert.deepEqual(calls, ["https://bad.example"]);
+});
