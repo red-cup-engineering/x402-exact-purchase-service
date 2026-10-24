@@ -32,6 +32,10 @@ const { kind, receipt, response } = await procureHttpResource({
 
 Free sources are tried first. Paid sources are quoted unsigned, sorted by price, and the cheapest under the ceiling is bought through `purchaseHttpResource` with its accepted quote, so payee and drift checks apply. An uncharged failure falls through to the next source. A charge without delivery stops procurement, so one need is never paid twice. `record` receives `free`, `bought`, `charged-undelivered` or `unprocured` rows.
 
+**Zero-cash autonomy.** The buyer can set `ceiling: { maximumAmount: "0" }` and omit `payer`, `network` and `asset`. It then tries **only** the candidates explicitly admitted by its owner as `free: true`, falling back on unreachable/free-HTTP refusals. It neither loads the paid x402 buyer nor probes a paid merchant, signs, or spends, even if paid candidates are present. A failed all-free search returns `ZERO_CASH_PROCUREMENT_EXHAUSTED` plus a cost row with `reason: "zero-cash-ceiling"`; that failure is **not** a $0 settlement or a usable source. The ceiling is an exact canonical string; numeric `0` is refused before egress.
+
+An HTTP 200 from a self-declared free vendor alone is not evidence that data is useful, current, licensed for the user's purpose, or inside a free allowance. Supply `admitFree: async ({ source, response }) => boolean` to check the **buyer- and product-specific** source permission, schema, observation window and accuracy of the result; returning anything other than `true`, or throwing, rejects that free result and falls back to another free source. This predicate receives a response clone if the Fetch response supports it, preserving the selected response body for the consuming service. A failed `record` is not reclassified as a source outage or permission to retry accepted fulfillment. The owner must supply an egress-safe `fetchImpl` and separately check provider terms/allowance—nothing here mints credentials, expands provider terms, or verifies paid buyer delivery or demand.
+
 ## Budgeted x402 quotes, before wallet custody
 
 The Engineering buyer now exports `@red-cup-engineering/x402-exact-purchase-service/http-quote`:
