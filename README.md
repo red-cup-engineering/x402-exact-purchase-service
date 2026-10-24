@@ -11,6 +11,27 @@
 
 `purchaseHttpResource` buys an HTTPS representation using the official x402 SDK. The owner supplies the signer, CAIP-10 account, network, token and maximum amount, and an explicit egress-safe `fetchImpl` to send the unsigned probe and paid request. No default ambient `globalThis.fetch` can send a signed authorization to an unadmitted endpoint. For **every paid request**, the owner supplies an **independently authorized** `expectedPayTo` before any network probe or signing. Unknown payees may be observed with the **unsigned quote API only**; a seller-authored 402 challenge must never select its own recipient as the buyer's spending authority. A challenge naming a different recipient is refused before signing. Optional recipient, asset or payer fields in a facilitator report cannot contradict those admitted terms; a report is still not independent chain settlement proof. `beforePayment` receives the exact request and signed payment before transmission; `onSettlement` receives the facilitator’s report before delivery is read. Retain both in the purchasing enterprise’s own books. A settlement report, received bytes and requester acceptance are distinct observations.
 
+## Procurement: the cheapest admissible source
+
+`@red-cup-engineering/x402-exact-purchase-service/procure` exports `procureHttpResource`. Give it several candidate sources for one need, a per-call ceiling and the enterprise's payer:
+
+```js
+import { procureHttpResource } from "@red-cup-engineering/x402-exact-purchase-service/procure";
+
+const { kind, receipt, response } = await procureHttpResource({
+  candidates: [
+    { url: "https://free.example/forecast", free: true },
+    { url: "https://seller-a.example/forecast", expectedPayTo: "0x…" },
+    { url: "https://seller-b.example/forecast", expectedPayTo: "0x…" },
+  ],
+  ceiling: { network: "eip155:8453", asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "50000" },
+  payer, fetchImpl: enterpriseEgressSafeFetch,
+  record: (row) => appendCostRow(row), // one row per outcome, for the buyer's own books
+});
+```
+
+Free sources are tried first. Paid sources are quoted unsigned, sorted by price, and the cheapest under the ceiling is bought through `purchaseHttpResource` with its accepted quote, so payee and drift checks apply. An uncharged failure falls through to the next source. A charge without delivery stops procurement, so one need is never paid twice. `record` receives `free`, `bought`, `charged-undelivered` or `unprocured` rows.
+
 ## Budgeted x402 quotes, before wallet custody
 
 The Engineering buyer now exports `@red-cup-engineering/x402-exact-purchase-service/http-quote`:
