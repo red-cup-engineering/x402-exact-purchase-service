@@ -126,3 +126,23 @@ test("positive budgets preserve the admitted paid-price ranking after free attem
   assert.equal(out.kind, "bought");
   assert.deepEqual(bought, ["https://cheap.example"]);
 });
+
+test("non-string zero is refused before egress; failed receipt recording is never treated as a failed supplier", async () => {
+  let calls = 0;
+  await assert.rejects(procureHttpResource({
+    candidates: [{ url: "https://free.example", free: true }],
+    ceiling: { maximumAmount: 0 },
+    fetchImpl: async () => { calls++; return response(200); },
+  }), /nonnegative integer atomic/);
+  assert.equal(calls, 0);
+  await assert.rejects(procureHttpResource({
+    candidates: [
+      { url: "https://first.example", free: true },
+      { url: "https://second.example", free: true },
+    ],
+    ceiling: { maximumAmount: "0" },
+    fetchImpl: async () => { calls++; return response(200); },
+    record: async () => { throw new Error("ledger unavailable"); },
+  }), /ledger unavailable/);
+  assert.equal(calls, 1);
+});
