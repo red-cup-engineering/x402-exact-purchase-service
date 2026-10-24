@@ -26,24 +26,28 @@ export async function procureHttpResource({
   now = () => new Date().toISOString(), readQuote, purchase, rpcUrl,
 } = {}) {
   if (!Array.isArray(candidates) || candidates.length === 0) throw new TypeError("at least one procurement candidate is required");
-  if (!ceiling || !AMOUNT.test(ceiling.maximumAmount ?? "")) throw new TypeError("ceiling.maximumAmount must be a nonnegative integer atomic amount");
+  if (!ceiling || typeof ceiling.maximumAmount !== "string" || !AMOUNT.test(ceiling.maximumAmount)) throw new TypeError("ceiling.maximumAmount must be a nonnegative integer atomic amount");
   // Zero is an absolute cash prohibition, not permission to search for a low-priced purchase.
   const freeOnly = ceiling.maximumAmount === "0";
   if (typeof fetchImpl !== "function") throw new TypeError("an egress-controlled fetchImpl is required");
   const tried = [];
   for (const source of candidates.filter((c) => c.free === true)) {
+    let response;
     try {
-      const response = await fetchImpl(source.url, { method: source.method ?? "GET", body: source.body, headers: source.headers, redirect: "manual" });
-      if (response.ok) {
-        await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "free", amount: "0" });
-        return { source, kind: "free", response };
-      }
-      tried.push({ url: source.url, status: response.status });
-      await response.body?.cancel();
+      response = await fetchImpl(source.url, { method: source.method ?? "GET", body: source.body, headers: source.headers, redirect: "manual" });
     } catch (error) {
-      // An unavailable supplier does not abort the search for an independent free alternative.
+      // Transport failures can fall back to another separately admitted free supplier.
       tried.push({ url: source.url, failed: error instanceof Error ? error.message : String(error) });
+      continue;
     }
+    if (response.ok) {
+      // Recording and returning accepted output are NOT transport retries: a failed
+      // record is an operating error, not permission to silently acquire again.
+      await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "free", amount: "0" });
+      return { source, kind: "free", response };
+    }
+    tried.push({ url: source.url, status: response.status });
+    await response.body?.cancel?.();
   }
 
   if (freeOnly) {
