@@ -1,0 +1,45 @@
+{
+  "version": "v1.1.0",
+  "entity": {
+    "type": "group",
+    "role": "owner",
+    "name": "561 Group",
+    "email": "group@561.group",
+    "description": "The 561 Group researches, designs and deploys technical infrastructure for long-horizon autonomy, collective intelligence and strategic prosperity through economic, political and ecological volatility. Its engineering organization, Red Cup Engineering, builds the open tools its agents use to buy, sell and verify machine work.",
+    "webpageUrl": { "url": "https://github.com/red-cup-engineering" }
+  },
+  "projects": [
+    {
+      "guid": "x402-exact-purchase-service",
+      "name": "x402 exact purchase service",
+      "description": "Buys HTTP resources priced with the x402 payment protocol, using the official x402 SDK. The buyer names an independently authorized payee before any probe or signature, so a seller's 402 challenge can never choose its own recipient; a challenge naming a different recipient is refused before signing. Procurement takes several candidate sources for one need, free or paid, and buys from the cheapest admissible one under a per-call ceiling. Hooks hand the signed payment and the facilitator's settlement report to the buyer's own books before delivery is read.",
+      "webpageUrl": { "url": "https://github.com/red-cup-engineering/x402-exact-purchase-service" },
+      "repositoryUrl": { "url": "https://github.com/red-cup-engineering/x402-exact-purchase-service" },
+      "licenses": ["spdx:MIT"],
+      "tags": ["x402", "payments", "http-402", "ai-agents", "procurement", "web3"]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "treasury",
+        "type": "other",
+        "address": "0x32886F6F361C1d570255c2762967A2e41D0E9B1a",
+        "description": "The 561 Group treasury: USDC on Base (eip155:8453) or Ethereum mainnet."
+      }
+    ],
+    "plans": [
+      {
+        "guid": "maintenance",
+        "status": "active",
+        "name": "Maintenance and development",
+        "description": "A year of maintenance and development: x402 protocol updates, new payment schemes and networks, procurement across more sources, and security review of payee authorization.",
+        "amount": 30000,
+        "currency": "USD",
+        "frequency": "yearly",
+        "channels": ["treasury"]
+      }
+    ],
+    "history": []
+  }
+}
