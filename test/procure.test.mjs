@@ -4,6 +4,9 @@ import { procureHttpResource } from "../src/procure.mjs";
 
 const ceiling = { network: "eip155:8453", asset: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", maximumAmount: "50000" };
 const response = (status) => ({ ok: status >= 200 && status < 300, status });
+// The control-flow fixtures deliberately admit only their own declared free
+// successful responses. Real consumers supply their own useful-output law.
+const admitFixtureResponse = async ({ source, response }) => source.free === true && response.status === 200;
 const quoteFor = (prices) => async ({ url, maximumAmount }) => {
   const amount = prices[url];
   if (amount === undefined || BigInt(amount) > BigInt(maximumAmount)) throw new TypeError("no eligible offer");
@@ -15,6 +18,7 @@ test("a free source wins without quoting or paying", async () => {
   const out = await procureHttpResource({
     candidates: [{ url: "https://paid.example/a", expectedPayTo: "0x" + "22".repeat(20) }, { url: "https://free.example/a", free: true }],
     ceiling, fetchImpl: async () => response(200), record: async (r) => rows.push(r),
+    admitFree: admitFixtureResponse,
     readQuote: async () => assert.fail("must not quote"), purchase: async () => assert.fail("must not buy"),
   });
   assert.equal(out.kind, "free");
@@ -76,6 +80,7 @@ test("zero cash is a native budget: free delivery without buyer, payee, or paid 
       { url: "https://second-free.example/signal", free: true },
     ],
     ceiling: { maximumAmount: "0" },
+    admitFree: admitFixtureResponse,
     fetchImpl: async (url, options) => {
       calls.push([url, options.redirect]);
       if (url.includes("first-free")) throw new Error("free provider unreachable");
@@ -100,6 +105,7 @@ test("zero cash excludes paid fallback and quotes even after a declared free sou
       { url: "https://paid.example/signal", expectedPayTo: "0x" + "22".repeat(20) },
     ],
     ceiling: { maximumAmount: "0" },
+    admitFree: admitFixtureResponse,
     fetchImpl: async url => { calls.push(url); return response(402); },
     record: async row => rows.push(row),
     readQuote: async () => assert.fail("zero-cash procurement cannot inspect paid sources"),
@@ -120,6 +126,7 @@ test("positive budgets preserve the admitted paid-price ranking after free attem
       { url: "https://cheap.example", expectedPayTo: "0x" + "22".repeat(20) },
     ],
     ceiling, fetchImpl: async () => response(503),
+    admitFree: admitFixtureResponse,
     readQuote: quoteFor({ "https://expensive.example": "3000", "https://cheap.example": "2000" }),
     purchase: async ({ url }) => { bought.push(url); return { transaction: "0xabc" }; },
   });
@@ -141,6 +148,7 @@ test("non-string zero is refused before egress; failed receipt recording is neve
       { url: "https://second.example", free: true },
     ],
     ceiling: { maximumAmount: "0" },
+    admitFree: admitFixtureResponse,
     fetchImpl: async () => { calls++; return response(200); },
     record: async () => { throw new Error("ledger unavailable"); },
   }), /ledger unavailable/);
@@ -183,4 +191,79 @@ test("a malformed free-source acceptance predicate cannot authorize a purchase",
   }), e => e.code === "ZERO_CASH_PROCUREMENT_EXHAUSTED"
     && e.tried[0]?.refused === "free-output-admission-error");
   assert.deepEqual(calls, ["https://bad.example"]);
+});
+
+test("free candidates require the consumer's admission contract before any effect", async () => {
+  for (const maximumAmount of ["0", "50000"]) {
+    for (const admitFree of [undefined, null, true, "accept"]) {
+      const effects = [];
+      await assert.rejects(procureHttpResource({
+        candidates: [
+          { url: "https://free.example/data", free: true },
+          { url: "https://paid.example/data", expectedPayTo: "0x" + "22".repeat(20) },
+        ],
+        ceiling: { ...ceiling, maximumAmount },
+        ...(admitFree === undefined ? {} : { admitFree }),
+        fetchImpl: async () => { effects.push("fetch"); return response(200); },
+        record: async () => { effects.push("record"); },
+        readQuote: async () => { effects.push("quote"); return {}; },
+        purchase: async () => { effects.push("purchase"); return {}; },
+      }), /admitFree must be a source-qualified response acceptance function/);
+      assert.deepEqual(effects, [], "missing source acceptance must not become free delivery or paid fallback");
+    }
+  }
+});
+
+test("consumer admission can read and qualify the body without consuming delivered bytes", async () => {
+  const expected = { edition: "fixture.v1", value: 42 };
+  const result = await procureHttpResource({
+    candidates: [
+      { url: "https://free.example/wrong-edition", free: true },
+      { url: "https://free.example/accepted", free: true },
+    ],
+    ceiling: { maximumAmount: "0" },
+    fetchImpl: async url => Response.json(url.endsWith("/accepted")
+      ? expected : { edition: "fixture.v0", value: 42 }),
+    admitFree: async ({ source, response }) => {
+      const value = await response.json();
+      return source.url === "https://free.example/accepted"
+        && value.edition === expected.edition && value.value === expected.value;
+    },
+    readQuote: async () => assert.fail("zero-cash receiving cannot quote"),
+    purchase: async () => assert.fail("zero-cash receiving cannot purchase"),
+  });
+  assert.equal(result.kind, "free");
+  assert.equal(result.source.url, "https://free.example/accepted");
+  assert.deepEqual(await result.response.json(), expected);
+});
+
+test("a received purchase is not repeated when its outcome cannot be recorded", async () => {
+  for (const deliveryFailed of [false, true]) {
+    const bought = [], rows = [];
+    const receipt = { transaction: "0xretained-first-purchase" };
+    const ledgerError = new Error("ledger unavailable");
+    const deliveryError = Object.assign(new Error("paid delivery unavailable"), { receipt });
+    await assert.rejects(procureHttpResource({
+      candidates: [
+        { url: "https://first.example/data", expectedPayTo: "0x" + "22".repeat(20) },
+        { url: "https://second.example/data", expectedPayTo: "0x" + "22".repeat(20) },
+      ],
+      ceiling,
+      fetchImpl: async () => assert.fail("the bounded quote fixture owns discovery"),
+      readQuote: quoteFor({ "https://first.example/data": "1000", "https://second.example/data": "2000" }),
+      purchase: async ({ url }) => {
+        bought.push(url);
+        if (deliveryFailed) throw deliveryError;
+        return receipt;
+      },
+      record: async row => { rows.push(row); throw ledgerError; },
+    }), error => error.code === "PROCUREMENT_RECORD_FAILED"
+      && error.receipt === receipt && error.cause === ledgerError
+      && (deliveryFailed ? error.purchaseError === deliveryError : !error.purchaseError));
+    assert.deepEqual(bought, ["https://first.example/data"],
+      "bookkeeping failure cannot purchase the same need from a second supplier");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].outcome, deliveryFailed ? "charged-undelivered" : "bought");
+    assert.equal(rows[0].transaction, receipt.transaction);
+  }
 });
