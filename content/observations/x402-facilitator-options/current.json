@@ -1,6 +1,6 @@
 {
   "kind": "original-x402-buyer-mainnet-facilitator-options/v1",
-  "at": "2026-10-25T14:32:37.107Z",
+  "at": "2026-10-26T16:57:34.518Z",
   "source": "official @x402/core@2.19.0 HTTPFacilitatorClient.getSupported",
   "buyerWork": "strict zero-new-cash seller settlement supplier options",
   "currentMerchant": "market.561.group; currently configured separately for authenticated Coinbase CDP",
@@ -16,14 +16,11 @@
       "documentedDailyCapPerReceivingAddress": 500,
       "independentlyObservedFeeAssurance": "unknown",
       "independentComplianceScreening": "unknown",
-      "observed": true,
-      "x402V2ExactBaseDeclared": true,
-      "signersAdvertised": 1,
-      "latencyMs": 428,
+      "observed": false,
+      "x402V2ExactBaseDeclared": false,
+      "refusal": "Facilitator getSupported failed (503): <!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /> <title>Service Suspended</title> </head> <body> This service ha...",
       "paymentAttempted": false,
-      "settlementAttempted": false,
-      "operationallyVerified": false,
-      "legallyCleared": false
+      "settlementAttempted": false
     },
     {
       "name": "xpay",
@@ -36,7 +33,7 @@
       "observed": true,
       "x402V2ExactBaseDeclared": true,
       "signersAdvertised": 1,
-      "latencyMs": 486,
+      "latencyMs": 227,
       "paymentAttempted": false,
       "settlementAttempted": false,
       "operationallyVerified": false,
