@@ -19,10 +19,12 @@ const lower = (a, b) => (BigInt(a) < BigInt(b) ? a : b);
  * `candidates`: `[{ url, method?, body?, headers?, free: true }]` or paid
  * `[{ url, method?, body?, headers?, network?, asset?, expectedPayTo, maximumAmount? }]`.
  * `ceiling`: `{ network, asset, maximumAmount }`, atomic units per call.
+ * `admitFree` is required when a free source is selected: the caller owns
+ * the useful-output contract, not the source's HTTP success status.
  * Returns `{ source, kind: "free" | "bought", response?, receipt? }`.
  */
 export async function procureHttpResource({
-  candidates, ceiling, payer, fetchImpl, admitFree = async () => true, record = async () => {},
+  candidates, ceiling, payer, fetchImpl, admitFree, record = async () => {},
   now = () => new Date().toISOString(), readQuote, purchase, rpcUrl,
 } = {}) {
   if (!Array.isArray(candidates) || candidates.length === 0) throw new TypeError("at least one procurement candidate is required");
@@ -30,9 +32,11 @@ export async function procureHttpResource({
   // Zero is an absolute cash prohibition, not permission to search for a low-priced purchase.
   const freeOnly = ceiling.maximumAmount === "0";
   if (typeof fetchImpl !== "function") throw new TypeError("an egress-controlled fetchImpl is required");
-  if (typeof admitFree !== "function") throw new TypeError("admitFree must be a source-qualified response acceptance function");
+  const freeSources = candidates.filter((source) => source.free === true);
+  if (freeSources.length && typeof admitFree !== "function")
+    throw new TypeError("admitFree must be a source-qualified response acceptance function for free sources");
   const tried = [];
-  for (const source of candidates.filter((c) => c.free === true)) {
+  for (const source of freeSources) {
     let response;
     try {
       response = await fetchImpl(source.url, { method: source.method ?? "GET", body: source.body, headers: source.headers, redirect: "manual" });
@@ -90,20 +94,37 @@ export async function procureHttpResource({
   quoted.sort((a, b) => (BigInt(a.quote.requirement.amount) < BigInt(b.quote.requirement.amount) ? -1 : 1));
 
   for (const { source, quote, network, asset, maximumAmount } of quoted) {
+    let receipt;
+    let purchaseError;
     try {
-      const receipt = await purchase({
+      receipt = await purchase({
         url: source.url, method: source.method, body: source.body, headers: source.headers,
         payer, network, asset, maximumAmount, expectedPayTo: source.expectedPayTo, acceptedQuote: quote, fetchImpl, rpcUrl,
       });
-      await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "bought", network, asset, amount: quote.requirement.amount, payTo: quote.requirement.payTo, transaction: receipt?.transaction ?? null });
-      return { source, kind: "bought", receipt };
     } catch (error) {
-      if (error.receipt) {
-        await record({ at: now(), kind: "x402-procurement", url: source.url, outcome: "charged-undelivered", network, asset, amount: quote.requirement.amount, payTo: quote.requirement.payTo, transaction: error.receipt.transaction ?? null });
-        throw error;
+      if (!error.receipt) {
+        tried.push({ url: source.url, failed: error.message });
+        continue;
       }
-      tried.push({ url: source.url, failed: error.message });
+      receipt = error.receipt;
+      purchaseError = error;
     }
+    // A completed charge is irreversible at this boundary. Bookkeeping is a
+    // different effect: its failure cannot become another supplier attempt.
+    try {
+      await record({ at: now(), kind: "x402-procurement", url: source.url,
+        outcome: purchaseError ? "charged-undelivered" : "bought",
+        network, asset, amount: quote.requirement.amount,
+        payTo: quote.requirement.payTo, transaction: receipt?.transaction ?? null });
+    } catch (cause) {
+      const error = new Error("purchase outcome could not be recorded", { cause });
+      error.code = "PROCUREMENT_RECORD_FAILED";
+      error.receipt = receipt;
+      if (purchaseError) error.purchaseError = purchaseError;
+      throw error;
+    }
+    if (purchaseError) throw purchaseError;
+    return { source, kind: "bought", receipt };
   }
 
   await record({ at: now(), kind: "x402-procurement", outcome: "unprocured", tried });
