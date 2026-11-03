@@ -1,6 +1,6 @@
 {
   "kind": "original-x402-buyer-mainnet-facilitator-options/v1",
-  "at": "2026-11-02T20:29:00.245Z",
+  "at": "2026-11-03T17:59:21.990Z",
   "source": "official @x402/core@2.19.0 HTTPFacilitatorClient.getSupported",
   "buyerWork": "strict zero-new-cash seller settlement supplier options",
   "currentMerchant": "market.561.group; currently configured separately for authenticated Coinbase CDP",
@@ -33,7 +33,7 @@
       "observed": true,
       "x402V2ExactBaseDeclared": true,
       "signersAdvertised": 1,
-      "latencyMs": 131,
+      "latencyMs": 252,
       "paymentAttempted": false,
       "settlementAttempted": false,
       "operationallyVerified": false,
