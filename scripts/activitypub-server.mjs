@@ -11,7 +11,7 @@ const active = await loadSuccessorAccountBinding({
 });
 const child = spawn(
   process.execPath,
-  [fileURLToPath(import.meta.resolve("@red-cup-engineering/activitypub-services-section/server"))],
+  [fileURLToPath(import.meta.resolve("@red-cup-engineering/activitypub-server"))],
   {
     env: {
       ...process.env,

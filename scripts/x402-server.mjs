@@ -8,7 +8,7 @@ import {
   createExactEvmPaymentBoundary,
   x402PaymentIdentity,
   x402SettlementEvidence,
-} from "@red-cup-engineering/x402-services-section";
+} from "@red-cup-engineering/x402-engineering-services-section";
 import {
   assertTerminalSettlementEvidence,
   purchaseAndAwaitExactResource,
