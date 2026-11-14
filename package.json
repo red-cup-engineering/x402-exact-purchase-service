@@ -38,7 +38,7 @@
     "express": "5.2.1",
     "@red-cup-engineering/relation-model-notation-cbor-codec": "0.1.0",
     "@red-cup-engineering/ni-services-section": "0.1.2",
-    "@red-cup-engineering/activitypub-server": "^0.2.1"
+    "@red-cup-engineering/activitypub-server": "^0.2.0"
   },
   "engines": {
     "node": ">=22.18"
